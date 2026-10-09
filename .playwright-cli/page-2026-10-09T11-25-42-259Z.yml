@@ -1,0 +1,255 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#dashboard"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "WiFi DensePose" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Human Tracking Through Walls Using WiFi Signals
+      - generic [ref=e7]:
+        - button "Notifications" [ref=e8] [cursor=pointer]:
+          - generic [ref=e12]: "46"
+        - button "Switch to dark theme" [ref=e13] [cursor=pointer]
+        - status [ref=e16]:
+          - generic [ref=e18]: Offline
+          - button "Reconnect" [ref=e175] [cursor=pointer]
+        - generic "API version" [ref=e19]
+        - generic "Environment" [ref=e20]
+        - status "System health" [ref=e21]
+        - generic "System uptime" [ref=e22]:
+          - generic [ref=e23]: 15:25
+          - generic [ref=e24]: "|"
+          - generic "Session uptime" [ref=e25]: 1m 0s
+        - button "Settings" [ref=e26] [cursor=pointer]
+        - combobox "Language" [ref=e31] [cursor=pointer]:
+          - option "EN" [selected]
+          - option "PL"
+    - tablist "Main navigation" [ref=e32]:
+      - tab "Dashboard" [ref=e33] [cursor=pointer]
+      - tab "Hardware" [active] [selected] [ref=e34] [cursor=pointer]
+      - tab "Live Demo" [ref=e35] [cursor=pointer]
+      - tab "Architecture" [ref=e36] [cursor=pointer]
+      - tab "Performance" [ref=e37] [cursor=pointer]
+      - tab "Applications" [ref=e38] [cursor=pointer]
+      - tab "Sensing" [ref=e39] [cursor=pointer]
+      - tab "Training" [ref=e40] [cursor=pointer]
+      - link "Pose Fusion" [ref=e41] [cursor=pointer]:
+        - /url: pose-fusion.html
+      - link "Observatory" [ref=e42] [cursor=pointer]:
+        - /url: observatory.html
+    - 'tabpanel "Hardware Configuration 3×3 Antenna Array Click antennas to toggle their state TX1 TX2 TX3 RX1 RX2 RX3 RX4 RX5 RX6 Transmitters (3) Receivers (6) Active TX: 3/3 Active RX: 6/6 Signal Quality: 100% WiFi Configuration Frequency 2.4GHz ± 20MHz Subcarriers 30 Sampling Rate 100 Hz Total Cost $30 Real-time CSI Data Amplitude: 0.86 Phase: 1.2π" [ref=e184]':
+      - heading "Hardware Configuration" [level=2] [ref=e185]
+      - generic [ref=e186]:
+        - generic [ref=e187]:
+          - heading "3×3 Antenna Array" [level=3] [ref=e188]
+          - paragraph [ref=e189]: Click antennas to toggle their state
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - generic [ref=e192] [cursor=pointer]: TX1
+              - generic [ref=e193] [cursor=pointer]: TX2
+              - generic [ref=e194] [cursor=pointer]: TX3
+              - generic [ref=e195] [cursor=pointer]: RX1
+              - generic [ref=e196] [cursor=pointer]: RX2
+              - generic [ref=e197] [cursor=pointer]: RX3
+              - generic [ref=e198] [cursor=pointer]: RX4
+              - generic [ref=e199] [cursor=pointer]: RX5
+              - generic [ref=e200] [cursor=pointer]: RX6
+            - generic [ref=e201]:
+              - generic [ref=e202]: Transmitters (3)
+              - generic [ref=e205]: Receivers (6)
+            - generic [ref=e208]:
+              - generic [ref=e209]:
+                - generic [ref=e210]: "Active TX:"
+                - generic [ref=e211]: 3/3
+              - generic [ref=e212]:
+                - generic [ref=e213]: "Active RX:"
+                - generic [ref=e214]: 6/6
+              - generic [ref=e215]:
+                - generic [ref=e216]: "Signal Quality:"
+                - generic [ref=e217]: 100%
+        - generic [ref=e218]:
+          - heading "WiFi Configuration" [level=3] [ref=e219]
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]: Frequency
+              - generic [ref=e223]: 2.4GHz ± 20MHz
+            - generic [ref=e224]:
+              - generic [ref=e225]: Subcarriers
+              - generic [ref=e226]: "30"
+            - generic [ref=e227]:
+              - generic [ref=e228]: Sampling Rate
+              - generic [ref=e229]: 100 Hz
+            - generic [ref=e230]:
+              - generic [ref=e231]: Total Cost
+              - generic [ref=e232]: $30
+          - generic [ref=e233]:
+            - heading "Real-time CSI Data" [level=4] [ref=e234]
+            - generic [ref=e235]:
+              - generic [ref=e236]:
+                - generic [ref=e237]: "Amplitude:"
+                - generic [ref=e240]: "0.86"
+              - generic [ref=e241]:
+                - generic [ref=e242]: "Phase:"
+                - generic [ref=e245]: 1.2π
+  - region "Notifications"
+  - status [ref=e134]: SIMULATED — every value on this screen is invented by your browser, not measured
+  - region "Notifications"
+  - status "Performance monitor":
+    - generic:
+      - generic: PERF
+      - button "Close performance monitor": ×
+    - generic:
+      - generic:
+        - generic: FPS
+        - generic: "--"
+      - generic:
+        - generic: MEM
+        - generic: "--"
+      - generic:
+        - generic: LAT
+        - generic: "--"
+      - generic:
+        - generic: DOM
+        - generic: "--"
+  - log "Activity log" [ref=e135]:
+    - generic [ref=e136]:
+      - generic [ref=e137]: Activity Log
+      - generic [ref=e138]:
+        - button "Toggle info messages" [ref=e139] [cursor=pointer]: I
+        - button "Toggle warnings" [ref=e140] [cursor=pointer]: W
+        - button "Toggle errors" [ref=e141] [cursor=pointer]: E
+        - button "Toggle connection events" [ref=e142] [cursor=pointer]: C
+        - button "Clear log" [ref=e143] [cursor=pointer]: Clear
+        - button "Close activity log" [ref=e144] [cursor=pointer]: ×
+  - dialog "Command palette":
+    - generic:
+      - generic:
+        - textbox "Search commands":
+          - /placeholder: Type a command...
+        - generic: Esc
+      - listbox "Commands"
+      - generic:
+        - generic:
+          - generic: Up
+          - generic: Down
+          - text: navigate
+        - generic:
+          - generic: Enter
+          - text: execute
+        - generic:
+          - generic: Esc
+          - text: close
+  - navigation "Mobile navigation" [ref=e146]:
+    - generic [ref=e147]:
+      - button "Dashboard" [ref=e148] [cursor=pointer]
+      - button "Hardware" [ref=e149] [cursor=pointer]
+      - button "Live Demo" [ref=e150] [cursor=pointer]
+      - button "Architecture" [ref=e151] [cursor=pointer]
+      - button "Performance" [ref=e152] [cursor=pointer]
+      - button "Applications" [ref=e153] [cursor=pointer]
+      - button "Sensing" [ref=e154] [cursor=pointer]
+      - button "Training" [ref=e155] [cursor=pointer]
+      - link "Pose Fusion" [ref=e156] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/pose-fusion.html
+      - link "Observatory" [ref=e157] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/observatory.html
+    - generic [ref=e158]: "Tip: Press Ctrl+K for command palette"
+  - region "Notification history":
+    - generic:
+      - generic: Notifications
+      - generic:
+        - button "Mark read"
+        - button "Clear"
+  - dialog "Quick settings":
+    - generic:
+      - heading "Settings" [level=3]
+      - button "Close": ×
+    - generic:
+      - generic:
+        - generic: Display
+        - generic: Reduced motion
+        - generic: High contrast
+        - generic: Compact mode
+      - generic:
+        - generic: Monitoring
+        - generic: Health polling
+        - generic: Auto-reconnect
+      - generic:
+        - generic: Cognitum Account
+        - generic: This server does not support Cognitum sign-in.
+      - generic:
+        - generic: API Access
+        - generic:
+          - generic: Bearer token (set only if the server enforces RUVIEW_API_TOKEN)
+          - textbox "Paste token..."
+          - generic:
+            - button "Save & Apply"
+            - button "Clear"
+          - generic: No token set (auth is off or unnecessary).
+      - generic:
+        - generic: Data
+        - generic:
+          - generic: Clear local data
+          - button "Clear"
+        - generic:
+          - generic: Reset onboarding
+          - button "Reset"
+  - dialog "Keyboard shortcuts":
+    - generic:
+      - generic:
+        - heading "Keyboard Shortcuts" [level=2]
+        - button "Close": ×
+      - generic:
+        - generic:
+          - heading "Navigation" [level=3]
+          - generic:
+            - generic: "1"
+            - generic: Switch to Dashboard tab
+          - generic:
+            - generic: "2"
+            - generic: Switch to Hardware tab
+          - generic:
+            - generic: "3"
+            - generic: Switch to Live Demo tab
+          - generic:
+            - generic: "4"
+            - generic: Switch to Architecture tab
+          - generic:
+            - generic: "5"
+            - generic: Switch to Performance tab
+          - generic:
+            - generic: "6"
+            - generic: Switch to Applications tab
+          - generic:
+            - generic: "7"
+            - generic: Switch to Sensing tab
+          - generic:
+            - generic: "8"
+            - generic: Switch to Training tab
+        - generic:
+          - heading "Actions" [level=3]
+          - generic:
+            - generic: P
+            - generic: Toggle performance monitor
+          - generic:
+            - generic: T
+            - generic: Toggle dark/light theme
+          - generic:
+            - generic: L
+            - generic: Toggle activity log
+          - generic:
+            - generic: E
+            - generic: Export sensor data
+          - generic:
+            - generic: F
+            - generic: Toggle fullscreen
+          - generic:
+            - generic: S
+            - generic: Take screenshot
+        - generic:
+          - heading "General" [level=3]
+          - generic:
+            - generic: "?"
+            - generic: Show keyboard shortcuts
+          - generic:
+            - generic: Esc
+            - generic: Close overlay / dialog

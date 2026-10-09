@@ -1,0 +1,232 @@
+- generic [active] [ref=f1e1]:
+  - link "Skip to main content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#dashboard"
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - heading "WiFi DensePose" [level=1] [ref=f1e5]
+      - paragraph [ref=f1e6]: Human Tracking Through Walls Using WiFi Signals
+      - generic [ref=f1e7]:
+        - button "Notifications" [ref=f1e8] [cursor=pointer]:
+          - generic [ref=f1e12]: "64"
+        - button "Switch to dark theme" [ref=f1e13] [cursor=pointer]
+        - status [ref=f1e16]:
+          - generic [ref=f1e18]: Connecting...
+        - generic "API version" [ref=f1e19]
+        - generic "Environment" [ref=f1e20]
+        - status "System health" [ref=f1e21]
+        - generic "System uptime" [ref=f1e22]:
+          - generic [ref=f1e23]: 15:26
+          - generic [ref=f1e24]: "|"
+          - generic "Session uptime" [ref=f1e25]: 0s
+        - button "Settings" [ref=f1e26] [cursor=pointer]
+        - combobox "Language" [ref=f1e31] [cursor=pointer]:
+          - option "EN" [selected]
+          - option "PL"
+    - tablist "Main navigation" [ref=f1e32]:
+      - tab "Dashboard" [ref=f1e33] [cursor=pointer]
+      - tab "Hardware" [ref=f1e34] [cursor=pointer]
+      - tab "Live Demo" [selected] [ref=f1e35] [cursor=pointer]
+      - tab "Architecture" [ref=f1e36] [cursor=pointer]
+      - tab "Performance" [ref=f1e37] [cursor=pointer]
+      - tab "Applications" [ref=f1e38] [cursor=pointer]
+      - tab "Sensing" [ref=f1e39] [cursor=pointer]
+      - tab "Training" [ref=f1e40] [cursor=pointer]
+      - link "Pose Fusion" [ref=f1e41] [cursor=pointer]:
+        - /url: pose-fusion.html
+      - link "Observatory" [ref=f1e42] [cursor=pointer]:
+        - /url: observatory.html
+    - text: TX1 TX2 TX3 RX1 RX2 RX3 RX4 RX5 RX6
+    - 'tabpanel "Live Demonstration Start Stream Stop Stream Ready WiFi Signal Analysis Signal Strength: -45 dBm Processing Latency: 12 ms Human Pose Detection Persons Detected: 0 Confidence: 0.0% Keypoints: 0/0" [ref=f1e43]':
+      - heading "Live Demonstration" [level=2] [ref=f1e44]
+      - generic [ref=f1e45]:
+        - button "Start Stream" [ref=f1e46] [cursor=pointer]
+        - button "Stop Stream" [disabled] [ref=f1e47]
+        - generic [ref=f1e48]: Ready
+      - generic [ref=f1e50]:
+        - generic [ref=f1e51]:
+          - heading "WiFi Signal Analysis" [level=3] [ref=f1e52]
+          - generic [ref=f1e55]:
+            - generic [ref=f1e56]:
+              - generic [ref=f1e57]: "Signal Strength:"
+              - generic [ref=f1e58]: "-45 dBm"
+            - generic [ref=f1e59]:
+              - generic [ref=f1e60]: "Processing Latency:"
+              - generic [ref=f1e61]: 12 ms
+        - generic [ref=f1e62]:
+          - heading "Human Pose Detection" [level=3] [ref=f1e63]
+          - generic [ref=f1e66]:
+            - generic [ref=f1e67]:
+              - generic [ref=f1e68]: "Persons Detected:"
+              - generic [ref=f1e69]: "0"
+            - generic [ref=f1e70]:
+              - generic [ref=f1e71]: "Confidence:"
+              - generic [ref=f1e72]: 0.0%
+            - generic [ref=f1e73]:
+              - generic [ref=f1e74]: "Keypoints:"
+              - generic [ref=f1e75]: 0/0
+  - region "Notifications":
+    - alert [ref=f1e77]:
+      - generic [ref=f1e82]: Backend unavailable — start sensing-server
+      - button "Dismiss" [ref=f1e83] [cursor=pointer]: ×
+  - status [ref=f1e86]: RECONNECTING — the display is frozen at the last live reading
+  - region "Notifications"
+  - status "Performance monitor":
+    - generic:
+      - generic: PERF
+      - button "Close performance monitor": ×
+    - generic:
+      - generic:
+        - generic: FPS
+        - generic: "--"
+      - generic:
+        - generic: MEM
+        - generic: "--"
+      - generic:
+        - generic: LAT
+        - generic: "--"
+      - generic:
+        - generic: DOM
+        - generic: "--"
+  - log "Activity log" [ref=f1e87]:
+    - generic [ref=f1e88]:
+      - generic [ref=f1e89]: Activity Log
+      - generic [ref=f1e90]:
+        - button "Toggle info messages" [ref=f1e91] [cursor=pointer]: I
+        - button "Toggle warnings" [ref=f1e92] [cursor=pointer]: W
+        - button "Toggle errors" [ref=f1e93] [cursor=pointer]: E
+        - button "Toggle connection events" [ref=f1e94] [cursor=pointer]: C
+        - button "Clear log" [ref=f1e95] [cursor=pointer]: Clear
+        - button "Close activity log" [ref=f1e96] [cursor=pointer]: ×
+  - dialog "Command palette":
+    - generic:
+      - generic:
+        - textbox "Search commands":
+          - /placeholder: Type a command...
+        - generic: Esc
+      - listbox "Commands"
+      - generic:
+        - generic:
+          - generic: Up
+          - generic: Down
+          - text: navigate
+        - generic:
+          - generic: Enter
+          - text: execute
+        - generic:
+          - generic: Esc
+          - text: close
+  - navigation "Mobile navigation" [ref=f1e98]:
+    - generic [ref=f1e99]:
+      - button "Dashboard" [ref=f1e100] [cursor=pointer]
+      - button "Hardware" [ref=f1e101] [cursor=pointer]
+      - button "Live Demo" [ref=f1e102] [cursor=pointer]
+      - button "Architecture" [ref=f1e103] [cursor=pointer]
+      - button "Performance" [ref=f1e104] [cursor=pointer]
+      - button "Applications" [ref=f1e105] [cursor=pointer]
+      - button "Sensing" [ref=f1e106] [cursor=pointer]
+      - button "Training" [ref=f1e107] [cursor=pointer]
+      - link "Pose Fusion" [ref=f1e108] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/pose-fusion.html
+      - link "Observatory" [ref=f1e109] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/observatory.html
+    - generic [ref=f1e110]: "Tip: Press Ctrl+K for command palette"
+  - region "Notification history":
+    - generic:
+      - generic: Notifications
+      - generic:
+        - button "Mark read"
+        - button "Clear"
+  - dialog "Quick settings":
+    - generic:
+      - heading "Settings" [level=3]
+      - button "Close": ×
+    - generic:
+      - generic:
+        - generic: Display
+        - generic: Reduced motion
+        - generic: High contrast
+        - generic: Compact mode
+      - generic:
+        - generic: Monitoring
+        - generic: Health polling
+        - generic: Auto-reconnect
+      - generic:
+        - generic: Cognitum Account
+        - generic: Checking...
+      - generic:
+        - generic: API Access
+        - generic:
+          - generic: Bearer token (set only if the server enforces RUVIEW_API_TOKEN)
+          - textbox "Paste token..."
+          - generic:
+            - button "Save & Apply"
+            - button "Clear"
+          - generic: No token set (auth is off or unnecessary).
+      - generic:
+        - generic: Data
+        - generic:
+          - generic: Clear local data
+          - button "Clear"
+        - generic:
+          - generic: Reset onboarding
+          - button "Reset"
+  - dialog "Keyboard shortcuts":
+    - generic:
+      - generic:
+        - heading "Keyboard Shortcuts" [level=2]
+        - button "Close": ×
+      - generic:
+        - generic:
+          - heading "Navigation" [level=3]
+          - generic:
+            - generic: "1"
+            - generic: Switch to Dashboard tab
+          - generic:
+            - generic: "2"
+            - generic: Switch to Hardware tab
+          - generic:
+            - generic: "3"
+            - generic: Switch to Live Demo tab
+          - generic:
+            - generic: "4"
+            - generic: Switch to Architecture tab
+          - generic:
+            - generic: "5"
+            - generic: Switch to Performance tab
+          - generic:
+            - generic: "6"
+            - generic: Switch to Applications tab
+          - generic:
+            - generic: "7"
+            - generic: Switch to Sensing tab
+          - generic:
+            - generic: "8"
+            - generic: Switch to Training tab
+        - generic:
+          - heading "Actions" [level=3]
+          - generic:
+            - generic: P
+            - generic: Toggle performance monitor
+          - generic:
+            - generic: T
+            - generic: Toggle dark/light theme
+          - generic:
+            - generic: L
+            - generic: Toggle activity log
+          - generic:
+            - generic: E
+            - generic: Export sensor data
+          - generic:
+            - generic: F
+            - generic: Toggle fullscreen
+          - generic:
+            - generic: S
+            - generic: Take screenshot
+        - generic:
+          - heading "General" [level=3]
+          - generic:
+            - generic: "?"
+            - generic: Show keyboard shortcuts
+          - generic:
+            - generic: Esc
+            - generic: Close overlay / dialog

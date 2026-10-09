@@ -1,0 +1,207 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#dashboard"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "WiFi DensePose" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Human Tracking Through Walls Using WiFi Signals
+      - generic [ref=e7]:
+        - button "Notifications" [ref=e8] [cursor=pointer]:
+          - generic [ref=e12]: 99+
+        - button "Switch to dark theme" [ref=e13] [cursor=pointer]
+        - status [ref=e16]:
+          - button "Reconnect" [ref=e277] [cursor=pointer]
+        - generic "API version" [ref=e19]
+        - generic "Environment" [ref=e20]
+        - status "System health" [ref=e21]
+        - button "Settings" [ref=e26] [cursor=pointer]
+      - button "Open navigation menu" [expanded] [ref=e437] [cursor=pointer]
+    - text: TX1 TX2 TX3 RX1 RX2 RX3 RX4 RX5 RX6
+    - tabpanel "System Architecture WiFi DensePose Architecture 1 CSI Input Channel State Information collected from WiFi antenna array 2 Phase Sanitization Remove hardware-specific noise and normalize signal phase 3 Modality Translation Convert WiFi signals to visual representation using CNN 4 DensePose-RCNN Extract human pose keypoints and body part segmentation 5 Wireframe Output Generate final human pose wireframe visualization" [ref=e412]:
+      - heading "System Architecture" [level=2] [ref=e413]
+      - generic [ref=e414]:
+        - img "WiFi DensePose Architecture" [ref=e415]
+        - generic [ref=e416]:
+          - generic [ref=e417] [cursor=pointer]:
+            - generic [ref=e418]: "1"
+            - heading "CSI Input" [level=3] [ref=e419]
+            - paragraph [ref=e420]: Channel State Information collected from WiFi antenna array
+          - generic [ref=e421] [cursor=pointer]:
+            - generic [ref=e422]: "2"
+            - heading "Phase Sanitization" [level=3] [ref=e423]
+            - paragraph [ref=e424]: Remove hardware-specific noise and normalize signal phase
+          - generic [ref=e425] [cursor=pointer]:
+            - generic [ref=e426]: "3"
+            - heading "Modality Translation" [level=3] [ref=e427]
+            - paragraph [ref=e428]: Convert WiFi signals to visual representation using CNN
+          - generic [ref=e429] [cursor=pointer]:
+            - generic [ref=e430]: "4"
+            - heading "DensePose-RCNN" [level=3] [ref=e431]
+            - paragraph [ref=e432]: Extract human pose keypoints and body part segmentation
+          - generic [ref=e433] [cursor=pointer]:
+            - generic [ref=e434]: "5"
+            - heading "Wireframe Output" [level=3] [ref=e435]
+            - paragraph [ref=e436]: Generate final human pose wireframe visualization
+  - region "Notifications"
+  - status [ref=e134]: SIMULATED — every value on this screen is invented by your browser, not measured
+  - region "Notifications"
+  - status "Performance monitor":
+    - generic:
+      - generic: PERF
+      - button "Close performance monitor": ×
+    - generic:
+      - generic:
+        - generic: FPS
+        - generic: "--"
+      - generic:
+        - generic: MEM
+        - generic: "--"
+      - generic:
+        - generic: LAT
+        - generic: "--"
+      - generic:
+        - generic: DOM
+        - generic: "--"
+  - log "Activity log" [ref=e135]:
+    - generic [ref=e136]:
+      - generic [ref=e137]: Activity Log
+      - generic [ref=e138]:
+        - button "Toggle info messages" [ref=e139] [cursor=pointer]: I
+        - button "Toggle warnings" [ref=e140] [cursor=pointer]: W
+        - button "Toggle errors" [ref=e141] [cursor=pointer]: E
+        - button "Toggle connection events" [ref=e142] [cursor=pointer]: C
+        - button "Clear log" [ref=e143] [cursor=pointer]: Clear
+        - button "Close activity log" [ref=e144] [cursor=pointer]: ×
+  - dialog "Command palette":
+    - generic:
+      - generic:
+        - textbox "Search commands":
+          - /placeholder: Type a command...
+        - generic: Esc
+      - listbox "Commands"
+      - generic:
+        - generic:
+          - generic: Up
+          - generic: Down
+          - text: navigate
+        - generic:
+          - generic: Enter
+          - text: execute
+        - generic:
+          - generic: Esc
+          - text: close
+  - navigation "Mobile navigation" [ref=e146]:
+    - generic [ref=e147]:
+      - button "Dashboard" [active] [ref=e148] [cursor=pointer]
+      - button "Hardware" [ref=e149] [cursor=pointer]
+      - button "Live Demo" [ref=e150] [cursor=pointer]
+      - button "Architecture" [ref=e151] [cursor=pointer]
+      - button "Performance" [ref=e152] [cursor=pointer]
+      - button "Applications" [ref=e153] [cursor=pointer]
+      - button "Sensing" [ref=e154] [cursor=pointer]
+      - button "Training" [ref=e155] [cursor=pointer]
+      - link "Pose Fusion" [ref=e156] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/pose-fusion.html
+      - link "Observatory" [ref=e157] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/observatory.html
+    - generic [ref=e158]: "Tip: Press Ctrl+K for command palette"
+  - region "Notification history":
+    - generic:
+      - generic: Notifications
+      - generic:
+        - button "Mark read"
+        - button "Clear"
+  - dialog "Quick settings":
+    - generic:
+      - heading "Settings" [level=3]
+      - button "Close": ×
+    - generic:
+      - generic:
+        - generic: Display
+        - generic: Reduced motion
+        - generic: High contrast
+        - generic: Compact mode
+      - generic:
+        - generic: Monitoring
+        - generic: Health polling
+        - generic: Auto-reconnect
+      - generic:
+        - generic: Cognitum Account
+        - generic: This server does not support Cognitum sign-in.
+      - generic:
+        - generic: API Access
+        - generic:
+          - generic: Bearer token (set only if the server enforces RUVIEW_API_TOKEN)
+          - textbox "Paste token..."
+          - generic:
+            - button "Save & Apply"
+            - button "Clear"
+          - generic: No token set (auth is off or unnecessary).
+      - generic:
+        - generic: Data
+        - generic:
+          - generic: Clear local data
+          - button "Clear"
+        - generic:
+          - generic: Reset onboarding
+          - button "Reset"
+  - dialog "Keyboard shortcuts":
+    - generic:
+      - generic:
+        - heading "Keyboard Shortcuts" [level=2]
+        - button "Close": ×
+      - generic:
+        - generic:
+          - heading "Navigation" [level=3]
+          - generic:
+            - generic: "1"
+            - generic: Switch to Dashboard tab
+          - generic:
+            - generic: "2"
+            - generic: Switch to Hardware tab
+          - generic:
+            - generic: "3"
+            - generic: Switch to Live Demo tab
+          - generic:
+            - generic: "4"
+            - generic: Switch to Architecture tab
+          - generic:
+            - generic: "5"
+            - generic: Switch to Performance tab
+          - generic:
+            - generic: "6"
+            - generic: Switch to Applications tab
+          - generic:
+            - generic: "7"
+            - generic: Switch to Sensing tab
+          - generic:
+            - generic: "8"
+            - generic: Switch to Training tab
+        - generic:
+          - heading "Actions" [level=3]
+          - generic:
+            - generic: P
+            - generic: Toggle performance monitor
+          - generic:
+            - generic: T
+            - generic: Toggle dark/light theme
+          - generic:
+            - generic: L
+            - generic: Toggle activity log
+          - generic:
+            - generic: E
+            - generic: Export sensor data
+          - generic:
+            - generic: F
+            - generic: Toggle fullscreen
+          - generic:
+            - generic: S
+            - generic: Take screenshot
+        - generic:
+          - heading "General" [level=3]
+          - generic:
+            - generic: "?"
+            - generic: Show keyboard shortcuts
+          - generic:
+            - generic: Esc
+            - generic: Close overlay / dialog

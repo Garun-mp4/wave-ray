@@ -1,0 +1,74 @@
+- generic [active]:
+  - generic:
+    - generic:
+      - generic: π RuView
+      - generic: WiFi DensePose Sensing Observatory
+    - generic:
+      - generic: DEMO
+      - generic [ref=e2]:
+        - generic "Auto-cycling" [ref=e3]: ▶
+        - combobox "Change scenario" [ref=e4] [cursor=pointer]:
+          - option "Auto-Cycle" [selected]
+          - option "Empty Room"
+          - option "Vital Signs"
+          - option "Multi-Person"
+          - option "Fall Detect"
+          - option "Sleep Monitor"
+          - option "Intrusion"
+          - option "Gesture Ctrl"
+          - option "Crowd (4 ppl)"
+          - option "Search Rescue"
+          - option "Elderly Care"
+          - option "Fitness"
+          - option "Security Patrol"
+      - generic: Baseline calibration with no human presence in the monitored zone.
+      - button "⚙" [ref=e5] [cursor=pointer]
+    - generic [ref=e6]:
+      - generic [ref=e7]: Vital Signs
+      - generic [ref=e8]:
+        - generic [ref=e9]: ♡
+        - generic [ref=e10]:
+          - generic [ref=e11]: Heart Rate
+          - generic [ref=e12]: 9 BPM
+      - generic [ref=e15]:
+        - generic [ref=e16]: ☼
+        - generic [ref=e17]:
+          - generic [ref=e18]: Respiration
+          - generic [ref=e19]: 2 RPM
+      - generic [ref=e22]:
+        - generic [ref=e23]: ⚖
+        - generic [ref=e24]:
+          - generic [ref=e25]: Confidence
+          - generic [ref=e26]: 11%
+    - generic [ref=e29]:
+      - generic [ref=e30]: WiFi Signal
+      - generic [ref=e31]:
+        - generic [ref=e32]: RSSI
+        - generic [ref=e33]: "-42 dBm"
+      - generic [ref=e34]:
+        - generic [ref=e35]: Variance
+        - generic [ref=e36]: "3.27"
+      - generic [ref=e37]:
+        - generic [ref=e38]: Motion
+        - generic [ref=e39]: "0.178"
+      - generic [ref=e40]:
+        - generic [ref=e41]: Persons
+        - generic [ref=e42]: "0"
+      - generic [ref=e53]: Presence
+      - generic [ref=e54]: ABSENT
+    - generic:
+      - generic:
+        - generic: ⚪
+        - generic: Human Pose Estimation
+      - generic:
+        - generic: ♥
+        - generic: Vital Sign Monitoring
+      - generic:
+        - generic: ☸
+        - generic: Presence Detection
+    - generic:
+      - generic: "[A] Orbit"
+      - generic: "[D] Scenario"
+      - generic: "[F] FPS"
+      - generic: "[S] Settings"
+      - generic: "[Space] Pause"

@@ -1,0 +1,283 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#dashboard"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "WiFi DensePose" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Human Tracking Through Walls Using WiFi Signals
+      - generic [ref=e7]:
+        - button "Notifications" [ref=e8] [cursor=pointer]:
+          - generic [ref=e12]: "16"
+        - button "Switch to dark theme" [ref=e13] [cursor=pointer]
+        - status [ref=e16]:
+          - generic [ref=e18]: Connecting...
+        - generic "API version" [ref=e19]
+        - generic "Environment" [ref=e20]
+        - status "System health" [ref=e21]
+        - generic "System uptime" [ref=e22]:
+          - generic [ref=e23]: 15:26
+          - generic [ref=e24]: "|"
+          - generic "Session uptime" [ref=e25]: 0s
+        - button "Settings" [ref=e26] [cursor=pointer]
+        - combobox "Language" [ref=e31] [cursor=pointer]:
+          - option "EN" [selected]
+          - option "PL"
+    - tablist "Main navigation" [ref=e32]:
+      - tab "Dashboard" [selected] [ref=e33] [cursor=pointer]
+      - tab "Hardware" [ref=e34] [cursor=pointer]
+      - tab "Live Demo" [ref=e35] [cursor=pointer]
+      - tab "Architecture" [ref=e36] [cursor=pointer]
+      - tab "Performance" [ref=e37] [cursor=pointer]
+      - tab "Applications" [ref=e38] [cursor=pointer]
+      - tab "Sensing" [ref=e39] [cursor=pointer]
+      - tab "Training" [ref=e40] [cursor=pointer]
+      - link "Pose Fusion" [ref=e41] [cursor=pointer]:
+        - /url: pose-fusion.html
+      - link "Observatory" [ref=e42] [cursor=pointer]:
+        - /url: observatory.html
+    - tabpanel "Revolutionary WiFi-Based Human Pose Detection AI can track your full-body movement through walls using just WiFi signals. Researchers at Carnegie Mellon have trained a neural network to turn basic WiFi signals into detailed wireframe models of human bodies. System Status API Server - Hardware - Inference - Streaming - Data Source RECONNECTING Attempting to connect... System Metrics CPU Usage 0% Memory Usage 0% Disk Usage 0% Features Live Statistics Active Persons 0 Avg Confidence 0% Total Detections 0 Zone Occupancy 🏠 Through Walls Works through solid barriers with no line of sight required 🔒 Privacy-Preserving No cameras or visual recording - just WiFi signal analysis ⚡ Real-Time Maps 24 body regions in real-time at 100Hz sampling rate 💰 Low Cost Built using $30 commercial WiFi hardware 24 Body Regions 100Hz Sampling Rate 87.2% Accuracy (AP@50) $30 Hardware Cost" [ref=e43]:
+      - generic [ref=e44]:
+        - heading "Revolutionary WiFi-Based Human Pose Detection" [level=2] [ref=e45]
+        - paragraph [ref=e46]: AI can track your full-body movement through walls using just WiFi signals. Researchers at Carnegie Mellon have trained a neural network to turn basic WiFi signals into detailed wireframe models of human bodies.
+        - generic [ref=e47]:
+          - heading "System Status" [level=3] [ref=e48]
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: API Server
+              - generic [ref=e52]: "-"
+            - generic [ref=e53]:
+              - generic [ref=e54]: Hardware
+              - generic [ref=e55]: "-"
+            - generic [ref=e56]:
+              - generic [ref=e57]: Inference
+              - generic [ref=e58]: "-"
+            - generic [ref=e59]:
+              - generic [ref=e60]: Streaming
+              - generic [ref=e61]: "-"
+            - generic [ref=e62]:
+              - generic [ref=e63]: Data Source
+              - generic [ref=e64]: RECONNECTING
+              - generic [ref=e65]: Attempting to connect...
+        - generic [ref=e66]:
+          - heading "System Metrics" [level=3] [ref=e67]
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic [ref=e70]: CPU Usage
+              - generic [ref=e72]: 0%
+            - generic [ref=e73]:
+              - generic [ref=e74]: Memory Usage
+              - generic [ref=e76]: 0%
+            - generic [ref=e77]:
+              - generic [ref=e78]: Disk Usage
+              - generic [ref=e80]: 0%
+        - heading "Features" [level=3] [ref=e82]
+        - generic [ref=e83]:
+          - heading "Live Statistics" [level=3] [ref=e84]
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic [ref=e87]: Active Persons
+              - text: "0"
+            - generic [ref=e88]:
+              - generic [ref=e89]: Avg Confidence
+              - text: 0%
+            - generic [ref=e90]:
+              - generic [ref=e91]: Total Detections
+              - text: "0"
+          - heading "Zone Occupancy" [level=4] [ref=e93]
+        - generic [ref=e94]:
+          - generic [ref=e95]:
+            - generic [ref=e96]: 🏠
+            - heading "Through Walls" [level=3] [ref=e97]
+            - paragraph [ref=e98]: Works through solid barriers with no line of sight required
+          - generic [ref=e99]:
+            - generic [ref=e100]: 🔒
+            - heading "Privacy-Preserving" [level=3] [ref=e101]
+            - paragraph [ref=e102]: No cameras or visual recording - just WiFi signal analysis
+          - generic [ref=e103]:
+            - generic [ref=e104]: ⚡
+            - heading "Real-Time" [level=3] [ref=e105]
+            - paragraph [ref=e106]: Maps 24 body regions in real-time at 100Hz sampling rate
+          - generic [ref=e107]:
+            - generic [ref=e108]: 💰
+            - heading "Low Cost" [level=3] [ref=e109]
+            - paragraph [ref=e110]: Built using $30 commercial WiFi hardware
+        - generic [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e113]: "24"
+            - generic [ref=e114]: Body Regions
+          - generic [ref=e115]:
+            - generic [ref=e116]: 100Hz
+            - generic [ref=e117]: Sampling Rate
+          - generic [ref=e118]:
+            - generic [ref=e119]: 87.2%
+            - generic [ref=e120]: Accuracy (AP@50)
+          - generic [ref=e121]:
+            - generic [ref=e122]: $30
+            - generic [ref=e123]: Hardware Cost
+    - text: TX1 TX2 TX3 RX1 RX2 RX3 RX4 RX5 RX6
+  - region "Notifications":
+    - alert [ref=e125]:
+      - generic [ref=e130]: Backend unavailable — start sensing-server
+      - button "Dismiss" [ref=e131] [cursor=pointer]: ×
+  - status [ref=e134]: RECONNECTING — the display is frozen at the last live reading
+  - region "Notifications"
+  - status "Performance monitor":
+    - generic:
+      - generic: PERF
+      - button "Close performance monitor": ×
+    - generic:
+      - generic:
+        - generic: FPS
+        - generic: "--"
+      - generic:
+        - generic: MEM
+        - generic: "--"
+      - generic:
+        - generic: LAT
+        - generic: "--"
+      - generic:
+        - generic: DOM
+        - generic: "--"
+  - log "Activity log" [ref=e135]:
+    - generic [ref=e136]:
+      - generic [ref=e137]: Activity Log
+      - generic [ref=e138]:
+        - button "Toggle info messages" [ref=e139] [cursor=pointer]: I
+        - button "Toggle warnings" [ref=e140] [cursor=pointer]: W
+        - button "Toggle errors" [ref=e141] [cursor=pointer]: E
+        - button "Toggle connection events" [ref=e142] [cursor=pointer]: C
+        - button "Clear log" [ref=e143] [cursor=pointer]: Clear
+        - button "Close activity log" [ref=e144] [cursor=pointer]: ×
+  - dialog "Command palette":
+    - generic:
+      - generic:
+        - textbox "Search commands":
+          - /placeholder: Type a command...
+        - generic: Esc
+      - listbox "Commands"
+      - generic:
+        - generic:
+          - generic: Up
+          - generic: Down
+          - text: navigate
+        - generic:
+          - generic: Enter
+          - text: execute
+        - generic:
+          - generic: Esc
+          - text: close
+  - navigation "Mobile navigation" [ref=e146]:
+    - generic [ref=e147]:
+      - button "Dashboard" [ref=e148] [cursor=pointer]
+      - button "Hardware" [ref=e149] [cursor=pointer]
+      - button "Live Demo" [ref=e150] [cursor=pointer]
+      - button "Architecture" [ref=e151] [cursor=pointer]
+      - button "Performance" [ref=e152] [cursor=pointer]
+      - button "Applications" [ref=e153] [cursor=pointer]
+      - button "Sensing" [ref=e154] [cursor=pointer]
+      - button "Training" [ref=e155] [cursor=pointer]
+      - link "Pose Fusion" [ref=e156] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/pose-fusion.html
+      - link "Observatory" [ref=e157] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/observatory.html
+    - generic [ref=e158]: "Tip: Press Ctrl+K for command palette"
+  - region "Notification history":
+    - generic:
+      - generic: Notifications
+      - generic:
+        - button "Mark read"
+        - button "Clear"
+  - dialog "Quick settings":
+    - generic:
+      - heading "Settings" [level=3]
+      - button "Close": ×
+    - generic:
+      - generic:
+        - generic: Display
+        - generic: Reduced motion
+        - generic: High contrast
+        - generic: Compact mode
+      - generic:
+        - generic: Monitoring
+        - generic: Health polling
+        - generic: Auto-reconnect
+      - generic:
+        - generic: Cognitum Account
+        - generic: This server does not support Cognitum sign-in.
+      - generic:
+        - generic: API Access
+        - generic:
+          - generic: Bearer token (set only if the server enforces RUVIEW_API_TOKEN)
+          - textbox "Paste token..."
+          - generic:
+            - button "Save & Apply"
+            - button "Clear"
+          - generic: No token set (auth is off or unnecessary).
+      - generic:
+        - generic: Data
+        - generic:
+          - generic: Clear local data
+          - button "Clear"
+        - generic:
+          - generic: Reset onboarding
+          - button "Reset"
+  - dialog "Keyboard shortcuts":
+    - generic:
+      - generic:
+        - heading "Keyboard Shortcuts" [level=2]
+        - button "Close": ×
+      - generic:
+        - generic:
+          - heading "Navigation" [level=3]
+          - generic:
+            - generic: "1"
+            - generic: Switch to Dashboard tab
+          - generic:
+            - generic: "2"
+            - generic: Switch to Hardware tab
+          - generic:
+            - generic: "3"
+            - generic: Switch to Live Demo tab
+          - generic:
+            - generic: "4"
+            - generic: Switch to Architecture tab
+          - generic:
+            - generic: "5"
+            - generic: Switch to Performance tab
+          - generic:
+            - generic: "6"
+            - generic: Switch to Applications tab
+          - generic:
+            - generic: "7"
+            - generic: Switch to Sensing tab
+          - generic:
+            - generic: "8"
+            - generic: Switch to Training tab
+        - generic:
+          - heading "Actions" [level=3]
+          - generic:
+            - generic: P
+            - generic: Toggle performance monitor
+          - generic:
+            - generic: T
+            - generic: Toggle dark/light theme
+          - generic:
+            - generic: L
+            - generic: Toggle activity log
+          - generic:
+            - generic: E
+            - generic: Export sensor data
+          - generic:
+            - generic: F
+            - generic: Toggle fullscreen
+          - generic:
+            - generic: S
+            - generic: Take screenshot
+        - generic:
+          - heading "General" [level=3]
+          - generic:
+            - generic: "?"
+            - generic: Show keyboard shortcuts
+          - generic:
+            - generic: Esc
+            - generic: Close overlay / dialog

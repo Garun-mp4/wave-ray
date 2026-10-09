@@ -1,0 +1,298 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#dashboard"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "WiFi DensePose" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Human Tracking Through Walls Using WiFi Signals
+      - generic [ref=e7]:
+        - button "Notifications" [ref=e8] [cursor=pointer]:
+          - generic [ref=e12]: "21"
+        - button "Switch to dark theme" [ref=e13] [cursor=pointer]
+        - status [ref=e16]:
+          - generic [ref=e18]: Connecting...
+        - generic "API version" [ref=e19]
+        - generic "Environment" [ref=e20]
+        - status "System health" [ref=e21]
+        - generic "System uptime" [ref=e22]:
+          - generic [ref=e23]: 15:27
+          - generic [ref=e24]: "|"
+          - generic "Session uptime" [ref=e25]: 14s
+        - button "Settings" [ref=e26] [cursor=pointer]
+        - combobox "Language" [ref=e31] [cursor=pointer]:
+          - option "EN" [selected]
+          - option "PL"
+    - tablist "Main navigation" [ref=e32]:
+      - tab "Dashboard" [ref=e33] [cursor=pointer]
+      - tab "Hardware" [ref=e34] [cursor=pointer]
+      - tab "Live Demo" [active] [selected] [ref=e35] [cursor=pointer]
+      - tab "Architecture" [ref=e36] [cursor=pointer]
+      - tab "Performance" [ref=e37] [cursor=pointer]
+      - tab "Applications" [ref=e38] [cursor=pointer]
+      - tab "Sensing" [ref=e39] [cursor=pointer]
+      - tab "Training" [ref=e40] [cursor=pointer]
+      - link "Pose Fusion" [ref=e41] [cursor=pointer]:
+        - /url: pose-fusion.html
+      - link "Observatory" [ref=e42] [cursor=pointer]:
+        - /url: observatory.html
+    - text: TX1 TX2 TX3 RX1 RX2 RX3 RX4 RX5 RX6
+    - 'tabpanel "RECONNECTING TO SERVER... Live Human Pose Detection Ready Start Detection Stop Detection Demo Debug Mode Zone 1 Human Pose Detection Disconnected Performance Metrics Connection Status: Reconnecting... Frames Processed: 0 Uptime: 0s Errors: 0 Last Update: Never Estimation Mode Unknown Waiting for first frame... Model Control Model: Signal-Derived (no model) Load Model Unload No model loaded Compare: Signal vs Model Off Training Idle Open Training Panel Record 60s Setup Guide 1x 1 ESP32 + 1 AP Presence, breathing, gross motion 3x 2-3 ESP32s Body localization, motion direction 4x+ 4+ ESP32s + trained model Individual limb tracking, full pose Signal-Derived mode uses aggregate CSI features. For per-limb tracking, load a trained .rvf model with --model path.rvf and use 4+ sensors. System Health API Health: Poor WebSocket: Poor Pose Service: Poor" [ref=e175]':
+      - generic [ref=e176]:
+        - status [ref=e177]: RECONNECTING TO SERVER...
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - heading "Live Human Pose Detection" [level=2] [ref=e180]
+            - generic [ref=e181]: Ready
+          - generic [ref=e184]:
+            - button "Start Detection" [ref=e185] [cursor=pointer]
+            - button "Stop Detection" [disabled] [ref=e186]
+            - button "Demo" [ref=e187] [cursor=pointer]
+            - button "Debug Mode" [ref=e188] [cursor=pointer]
+            - combobox [ref=e189] [cursor=pointer]:
+              - option "Zone 1" [selected]
+              - option "Zone 2"
+              - option "Zone 3"
+        - generic [ref=e190]:
+          - generic [ref=e195]:
+            - heading "Human Pose Detection" [level=3] [ref=e196]
+            - generic [ref=e197]: Disconnected
+          - generic [ref=e202]:
+            - generic [ref=e203]:
+              - heading "Performance Metrics" [level=4] [ref=e204]
+              - generic [ref=e205]:
+                - generic [ref=e206]: "Connection Status:"
+                - generic [ref=e207]: Reconnecting...
+              - generic [ref=e208]:
+                - generic [ref=e209]: "Frames Processed:"
+                - generic [ref=e210]: "0"
+              - generic [ref=e211]:
+                - generic [ref=e212]: "Uptime:"
+                - generic [ref=e213]: 0s
+              - generic [ref=e214]:
+                - generic [ref=e215]: "Errors:"
+                - generic [ref=e216]: "0"
+              - generic [ref=e217]:
+                - generic [ref=e218]: "Last Update:"
+                - generic [ref=e219]: Never
+            - generic [ref=e220]:
+              - heading "Estimation Mode" [level=4] [ref=e221]
+              - generic [ref=e222]:
+                - generic [ref=e223]: Unknown
+                - paragraph [ref=e224]: Waiting for first frame...
+            - generic [ref=e225]:
+              - heading "Model Control" [level=4] [ref=e226]
+              - generic [ref=e227]:
+                - generic [ref=e228]: "Model:"
+                - combobox [ref=e229] [cursor=pointer]:
+                  - option "Signal-Derived (no model)" [selected]
+              - generic [ref=e230]:
+                - button "Load Model" [ref=e231] [cursor=pointer]
+                - button "Unload" [disabled] [ref=e232]
+              - generic [ref=e233]: No model loaded
+            - generic [ref=e235]:
+              - generic [ref=e236]: "Compare: Signal vs Model"
+              - button "Off" [disabled] [ref=e237]
+            - generic [ref=e238]:
+              - heading "Training" [level=4] [ref=e239]
+              - generic [ref=e240]: Idle
+              - generic [ref=e242]:
+                - button "Open Training Panel" [ref=e243] [cursor=pointer]
+                - button "Record 60s" [ref=e244] [cursor=pointer]
+            - generic [ref=e245]:
+              - heading "Setup Guide" [level=4] [ref=e246]
+              - generic [ref=e247]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]: 1x
+                  - generic [ref=e250]:
+                    - strong [ref=e251]: 1 ESP32 + 1 AP
+                    - paragraph [ref=e252]: Presence, breathing, gross motion
+                - generic [ref=e253]:
+                  - generic [ref=e254]: 3x
+                  - generic [ref=e255]:
+                    - strong [ref=e256]: 2-3 ESP32s
+                    - paragraph [ref=e257]: Body localization, motion direction
+                - generic [ref=e258]:
+                  - generic [ref=e259]: 4x+
+                  - generic [ref=e260]:
+                    - strong [ref=e261]: 4+ ESP32s + trained model
+                    - paragraph [ref=e262]: Individual limb tracking, full pose
+              - paragraph [ref=e263]:
+                - text: Signal-Derived mode uses aggregate CSI features. For per-limb tracking, load a trained
+                - code [ref=e264]: .rvf
+                - text: model with
+                - code [ref=e265]: "--model path.rvf"
+                - text: and use 4+ sensors.
+            - generic [ref=e266]:
+              - heading "System Health" [level=4] [ref=e267]
+              - generic [ref=e268]:
+                - generic [ref=e269]: "API Health:"
+                - generic [ref=e270]: Poor
+              - generic [ref=e271]:
+                - generic [ref=e272]: "WebSocket:"
+                - generic [ref=e273]: Poor
+              - generic [ref=e274]:
+                - generic [ref=e275]: "Pose Service:"
+                - generic [ref=e276]: Poor
+  - region "Notifications"
+  - status [ref=e134]: RECONNECTING — the display is frozen at the last live reading
+  - region "Notifications"
+  - status "Performance monitor":
+    - generic:
+      - generic: PERF
+      - button "Close performance monitor": ×
+    - generic:
+      - generic:
+        - generic: FPS
+        - generic: "--"
+      - generic:
+        - generic: MEM
+        - generic: "--"
+      - generic:
+        - generic: LAT
+        - generic: "--"
+      - generic:
+        - generic: DOM
+        - generic: "--"
+  - log "Activity log" [ref=e135]:
+    - generic [ref=e136]:
+      - generic [ref=e137]: Activity Log
+      - generic [ref=e138]:
+        - button "Toggle info messages" [ref=e139] [cursor=pointer]: I
+        - button "Toggle warnings" [ref=e140] [cursor=pointer]: W
+        - button "Toggle errors" [ref=e141] [cursor=pointer]: E
+        - button "Toggle connection events" [ref=e142] [cursor=pointer]: C
+        - button "Clear log" [ref=e143] [cursor=pointer]: Clear
+        - button "Close activity log" [ref=e144] [cursor=pointer]: ×
+  - dialog "Command palette":
+    - generic:
+      - generic:
+        - textbox "Search commands":
+          - /placeholder: Type a command...
+        - generic: Esc
+      - listbox "Commands"
+      - generic:
+        - generic:
+          - generic: Up
+          - generic: Down
+          - text: navigate
+        - generic:
+          - generic: Enter
+          - text: execute
+        - generic:
+          - generic: Esc
+          - text: close
+  - navigation "Mobile navigation" [ref=e146]:
+    - generic [ref=e147]:
+      - button "Dashboard" [ref=e148] [cursor=pointer]
+      - button "Hardware" [ref=e149] [cursor=pointer]
+      - button "Live Demo" [ref=e150] [cursor=pointer]
+      - button "Architecture" [ref=e151] [cursor=pointer]
+      - button "Performance" [ref=e152] [cursor=pointer]
+      - button "Applications" [ref=e153] [cursor=pointer]
+      - button "Sensing" [ref=e154] [cursor=pointer]
+      - button "Training" [ref=e155] [cursor=pointer]
+      - link "Pose Fusion" [ref=e156] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/pose-fusion.html
+      - link "Observatory" [ref=e157] [cursor=pointer]:
+        - /url: http://127.0.0.1:3000/observatory.html
+    - generic [ref=e158]: "Tip: Press Ctrl+K for command palette"
+  - region "Notification history":
+    - generic:
+      - generic: Notifications
+      - generic:
+        - button "Mark read"
+        - button "Clear"
+  - dialog "Quick settings":
+    - generic:
+      - heading "Settings" [level=3]
+      - button "Close": ×
+    - generic:
+      - generic:
+        - generic: Display
+        - generic: Reduced motion
+        - generic: High contrast
+        - generic: Compact mode
+      - generic:
+        - generic: Monitoring
+        - generic: Health polling
+        - generic: Auto-reconnect
+      - generic:
+        - generic: Cognitum Account
+        - generic: This server does not support Cognitum sign-in.
+      - generic:
+        - generic: API Access
+        - generic:
+          - generic: Bearer token (set only if the server enforces RUVIEW_API_TOKEN)
+          - textbox "Paste token..."
+          - generic:
+            - button "Save & Apply"
+            - button "Clear"
+          - generic: No token set (auth is off or unnecessary).
+      - generic:
+        - generic: Data
+        - generic:
+          - generic: Clear local data
+          - button "Clear"
+        - generic:
+          - generic: Reset onboarding
+          - button "Reset"
+  - dialog "Keyboard shortcuts":
+    - generic:
+      - generic:
+        - heading "Keyboard Shortcuts" [level=2]
+        - button "Close": ×
+      - generic:
+        - generic:
+          - heading "Navigation" [level=3]
+          - generic:
+            - generic: "1"
+            - generic: Switch to Dashboard tab
+          - generic:
+            - generic: "2"
+            - generic: Switch to Hardware tab
+          - generic:
+            - generic: "3"
+            - generic: Switch to Live Demo tab
+          - generic:
+            - generic: "4"
+            - generic: Switch to Architecture tab
+          - generic:
+            - generic: "5"
+            - generic: Switch to Performance tab
+          - generic:
+            - generic: "6"
+            - generic: Switch to Applications tab
+          - generic:
+            - generic: "7"
+            - generic: Switch to Sensing tab
+          - generic:
+            - generic: "8"
+            - generic: Switch to Training tab
+        - generic:
+          - heading "Actions" [level=3]
+          - generic:
+            - generic: P
+            - generic: Toggle performance monitor
+          - generic:
+            - generic: T
+            - generic: Toggle dark/light theme
+          - generic:
+            - generic: L
+            - generic: Toggle activity log
+          - generic:
+            - generic: E
+            - generic: Export sensor data
+          - generic:
+            - generic: F
+            - generic: Toggle fullscreen
+          - generic:
+            - generic: S
+            - generic: Take screenshot
+        - generic:
+          - heading "General" [level=3]
+          - generic:
+            - generic: "?"
+            - generic: Show keyboard shortcuts
+          - generic:
+            - generic: Esc
+            - generic: Close overlay / dialog
