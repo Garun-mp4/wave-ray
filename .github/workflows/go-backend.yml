@@ -1,0 +1,61 @@
+name: Go sensing backend
+
+on:
+  push:
+    branches: [main, develop, 'feature/*', 'feat/*', 'hotfix/*']
+    paths:
+      - 'backend/**'
+      - '.github/workflows/go-backend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/go-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: format · test · vet · build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Check formatting
+        working-directory: backend
+        run: |
+          files=$(find . -name '*.go' -type f)
+          unformatted=$(gofmt -l $files)
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Test with race detector
+        working-directory: backend
+        run: go test -race ./...
+
+      - name: Vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: Verify modules
+        working-directory: backend
+        run: go mod verify
+
+      - name: Build server
+        working-directory: backend
+        run: go build -trimpath -o "$RUNNER_TEMP/ruview-server" ./cmd/ruview-server

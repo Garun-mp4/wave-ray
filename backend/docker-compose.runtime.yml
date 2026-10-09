@@ -1,0 +1,42 @@
+services:
+  go-sensing-server:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: ruvnet/ruview-go-backend:migration
+    ports:
+      - "127.0.0.1:3000:3000/tcp"
+      - "127.0.0.1:3001:3001/tcp"
+      - "${RUVIEW_UDP_PUBLISH_ADDR:-0.0.0.0}:5005:5005/udp"
+    environment:
+      RUVIEW_API_TOKEN: "${RUVIEW_API_TOKEN:-}"
+      RUVIEW_OAUTH_ISSUER: "${RUVIEW_OAUTH_ISSUER:-}"
+      RUVIEW_OAUTH_JWKS_URL: "${RUVIEW_OAUTH_JWKS_URL:-}"
+      RUVIEW_OAUTH_CLIENT_IDS: "${RUVIEW_OAUTH_CLIENT_IDS:-ruview}"
+      RUVIEW_PUBLIC_BASE_URL: "${RUVIEW_PUBLIC_BASE_URL:-}"
+      RUVIEW_SESSION_SECRET: "${RUVIEW_SESSION_SECRET:-}"
+      RUVIEW_UDP_ALLOW: "${RUVIEW_UDP_ALLOW:?Set RUVIEW_UDP_ALLOW to the permitted UDP sender IP or CIDR}"
+      CSI_SOURCE: "${CSI_SOURCE:-esp32}"
+      RUVIEW_PRIVACY_MODE: "${RUVIEW_PRIVACY_MODE:-false}"
+      RUVIEW_ACTIVITY_STATE: "${RUVIEW_ACTIVITY_STATE:-/app/data/activity-state.json}"
+      RUVIEW_POSE_MODEL_PATH: "${RUVIEW_POSE_MODEL_PATH-/app/share/pose_v1.safetensors}"
+      RUVIEW_POSE_NODE_ID: "${RUVIEW_POSE_NODE_ID:--1}"
+      SENSING_ALLOWED_HOSTS: "${SENSING_ALLOWED_HOSTS:-localhost,127.0.0.1}"
+      SENSING_NODE_POSITIONS: "${SENSING_NODE_POSITIONS:-}"
+    volumes:
+      - go-backend-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+volumes:
+  go-backend-data:

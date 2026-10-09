@@ -1,0 +1,19 @@
+services:
+  go-backend-tests:
+    image: golang:1.27.2-bookworm
+    working_dir: /workspace
+    environment:
+      CGO_ENABLED: "1"
+      GOTOOLCHAIN: local
+    volumes:
+      - .:/workspace
+      - go-module-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    command:
+      - sh
+      - -c
+      - gofmt -w $(find . -type f -name '*.go') && go test -mod=readonly ./... && go vet -mod=readonly ./...
+
+volumes:
+  go-module-cache:
+  go-build-cache:

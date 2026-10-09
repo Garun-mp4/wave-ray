@@ -1,0 +1,11 @@
+**
+!backend
+!backend/**
+!ui
+!ui/**
+!v2
+!v2/crates
+!v2/crates/cog-pose-estimation
+!v2/crates/cog-pose-estimation/cog
+!v2/crates/cog-pose-estimation/cog/artifacts
+!v2/crates/cog-pose-estimation/cog/artifacts/pose_v1.safetensors
