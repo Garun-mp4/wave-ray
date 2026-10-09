@@ -24,18 +24,20 @@ import (
 	"github.com/ruvnet/ruview/backend/internal/protocol"
 	"github.com/ruvnet/ruview/backend/internal/radar"
 	"github.com/ruvnet/ruview/backend/internal/recording"
+	"github.com/ruvnet/ruview/backend/internal/rufield"
 	"github.com/ruvnet/ruview/backend/internal/security"
 	"github.com/ruvnet/ruview/backend/internal/signal"
 	"github.com/ruvnet/ruview/backend/internal/state"
+	"github.com/ruvnet/ruview/backend/internal/vendor"
 	"github.com/ruvnet/ruview/backend/internal/ws"
 )
 
 func testServer(t *testing.T, token string, privacy bool) (*httptest.Server, *state.Store, *ws.Hub) {
-	server, store, hub, _ := testServerWithData(t, token, privacy)
+	server, store, hub, _, _ := testServerWithData(t, token, privacy)
 	return server, store, hub
 }
 
-func testServerWithData(t *testing.T, token string, privacy bool) (*httptest.Server, *state.Store, *ws.Hub, string) {
+func testServerWithData(t *testing.T, token string, privacy bool) (*httptest.Server, *state.Store, *ws.Hub, string, *Server) {
 	t.Helper()
 	hub := ws.NewHub()
 	store := state.New("auto", hub)
@@ -62,7 +64,7 @@ func testServerWithData(t *testing.T, token string, privacy bool) (*httptest.Ser
 	server := httptest.NewServer(api.Handler())
 	t.Cleanup(server.Close)
 	t.Cleanup(api.Close)
-	return server, store, hub, dataDir
+	return server, store, hub, dataDir, api
 }
 
 func calibrationTestServer(t *testing.T) (*httptest.Server, *state.Store, *calibration.Manager) {
@@ -87,10 +89,11 @@ func calibrationTestServer(t *testing.T) (*httptest.Server, *state.Store, *calib
 func TestReadinessAndEmptyLatestEndpoints(t *testing.T) {
 	server, _, _ := testServer(t, "", false)
 	for path, expected := range map[string]string{
-		"/health/ready":          `"status":"ready"`,
-		"/health/health":         `"status":"degraded"`,
-		"/api/v1/sensing/latest": `"status":"no data yet"`,
-		"/api/v1/nodes":          `"total":0`,
+		"/health/ready":                    `"status":"ready"`,
+		"/health/health":                   `"status":"degraded"`,
+		"/api/v1/sensing/latest":           `"status":"no data yet"`,
+		"/api/v1/nodes":                    `"total":0`,
+		"/api/v1/integrations/mqtt/status": `"state":"disabled"`,
 	} {
 		resp, err := http.Get(server.URL + path)
 		if err != nil {
@@ -164,7 +167,7 @@ func TestMigrationStatusEndpointsAreExplicit(t *testing.T) {
 }
 
 func TestTrainingRESTLifecycleProducesLoadableRVFModel(t *testing.T) {
-	server, _, _, dataDir := testServerWithData(t, "", false)
+	server, _, _, dataDir, _ := testServerWithData(t, "", false)
 	recordingsDir := filepath.Join(dataDir, "recordings")
 	write := func(name string, variance float64, amplitudes []float64) {
 		t.Helper()
@@ -606,6 +609,80 @@ func TestVendorRFDescriptorIngestAndLatestRoutes(t *testing.T) {
 	}
 }
 
+func TestOriginCloudPollUsesConfiguredCredentialAndPublishesLatestSnapshot(t *testing.T) {
+	const cloudToken = "test-origin-cloud-token-do-not-expose"
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/events" || r.Header.Get("Authorization") != "Bearer "+cloudToken {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"events":[{"sequence":4,"timestamp_us":1710000000000000,"source_id":"origin-node","kind":"presence","confidence":0.7,"value":1}]}`)
+	}))
+	defer provider.Close()
+	for _, name := range []string{
+		"RUVIEW_MIST_SITE_ID", "RUVIEW_MIST_REGION", "MIST_API_TOKEN",
+		"RUVIEW_NETGEAR_LOCATION_ID", "RUVIEW_NETGEAR_REGION", "NETGEAR_INSIGHT_TOKEN",
+		"RUVIEW_PLUME_BASE_URL", "RUVIEW_PLUME_EVENTS_PATH", "RUVIEW_PLUME_TOKEN_ENV", "PLUME_API_TOKEN",
+	} {
+		t.Setenv(name, "")
+	}
+	t.Setenv("RUVIEW_ORIGIN_AI_BASE_URL", provider.URL)
+	t.Setenv("RUVIEW_ORIGIN_AI_EVENTS_PATH", "/events")
+	t.Setenv("RUVIEW_ORIGIN_AI_TOKEN_ENV", "")
+	t.Setenv("ORIGIN_AI_TOKEN", cloudToken)
+	t.Setenv("RUVIEW_MQTT", "false")
+	server, _, _, _, api := testServerWithData(t, "api-test-token", false)
+	if err := api.Start(context.Background()); err != nil {
+		t.Fatalf("start integrations: %v", err)
+	}
+
+	var statusBody []byte
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		request, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/rf/vendors/status", nil)
+		request.Header.Set("Authorization", "Bearer api-test-token")
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		statusBody, err = io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var statuses []vendor.PollStatus
+		if response.StatusCode != http.StatusOK || json.Unmarshal(statusBody, &statuses) != nil {
+			t.Fatalf("vendor poll status: %d %s", response.StatusCode, statusBody)
+		}
+		if len(statuses) == 1 && statuses[0].Vendor == vendor.OriginAI && statuses[0].State == "ready" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !strings.Contains(string(statusBody), `"state":"ready"`) {
+		t.Fatalf("Origin cloud poll did not become ready: %s", statusBody)
+	}
+	if strings.Contains(string(statusBody), cloudToken) {
+		t.Fatal("vendor status exposed the provider credential")
+	}
+
+	request, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/rf/vendors/origin_ai/latest", nil)
+	request.Header.Set("Authorization", "Bearer api-test-token")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var snapshot vendor.Snapshot
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || snapshot.EventType != "vendor_rf" || snapshot.Vendor != vendor.OriginAI || snapshot.SourceID != "origin-node" {
+		t.Fatalf("unexpected polled vendor snapshot: status=%d snapshot=%+v", response.StatusCode, snapshot)
+	}
+}
+
 func TestVendorRFIngestEnforcesProviderAndPayloadLimits(t *testing.T) {
 	server, _, _ := testServer(t, "", false)
 	for _, tc := range []struct {
@@ -647,7 +724,7 @@ func TestVendorRFIngestEnforcesProviderAndPayloadLimits(t *testing.T) {
 }
 
 func TestAdaptiveClassifierTrainPersistStatusAndUnloadRoutes(t *testing.T) {
-	server, _, _, dataDir := testServerWithData(t, "adaptive-test-token", false)
+	server, _, _, dataDir, _ := testServerWithData(t, "adaptive-test-token", false)
 	recordingsDir := filepath.Join(dataDir, "recordings")
 	for _, item := range []struct {
 		name     string
@@ -1168,7 +1245,18 @@ func TestRealtekRadarLatestRouteServesAggregateOnly(t *testing.T) {
 }
 
 func TestRuFieldEndpointsAreExplicitAndAuthGated(t *testing.T) {
-	server, _, _ := testServer(t, "rufield-token", false)
+	for _, name := range []string{
+		"RUVIEW_MQTT", "RUVIEW_MIST_SITE_ID", "RUVIEW_MIST_REGION", "RUVIEW_NETGEAR_LOCATION_ID",
+		"RUVIEW_NETGEAR_REGION", "RUVIEW_ORIGIN_AI_BASE_URL", "RUVIEW_ORIGIN_AI_EVENTS_PATH",
+		"RUVIEW_ORIGIN_AI_TOKEN_ENV", "RUVIEW_PLUME_BASE_URL", "RUVIEW_PLUME_EVENTS_PATH",
+		"RUVIEW_PLUME_TOKEN_ENV",
+	} {
+		t.Setenv(name, "")
+	}
+	server, _, hub, _, api := testServerWithData(t, "rufield-token", true)
+	if err := api.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 
 	response, err := http.Get(server.URL + "/api/field")
 	if err != nil {
@@ -1177,26 +1265,6 @@ func TestRuFieldEndpointsAreExplicitAndAuthGated(t *testing.T) {
 	response.Body.Close()
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unauthorized RuField API status=%d", response.StatusCode)
-	}
-
-	for _, path := range []string{"/api/field", "/ws/field"} {
-		request, requestErr := http.NewRequest(http.MethodGet, server.URL+path, nil)
-		if requestErr != nil {
-			t.Fatal(requestErr)
-		}
-		request.Header.Set("Authorization", "Bearer rufield-token")
-		response, err = http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, readErr := io.ReadAll(response.Body)
-		response.Body.Close()
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		if response.StatusCode != http.StatusNotImplemented || !strings.Contains(string(body), `"code":"rufield_unavailable"`) {
-			t.Fatalf("%s should report the missing port explicitly: status=%d body=%s", path, response.StatusCode, body)
-		}
 	}
 
 	response, err = http.Get(server.URL + "/ws/field")
@@ -1225,6 +1293,78 @@ func TestRuFieldEndpointsAreExplicitAndAuthGated(t *testing.T) {
 	}
 	if response.StatusCode != http.StatusForbidden || !strings.Contains(string(body), `"code":"origin_rejected"`) {
 		t.Fatalf("untrusted RuField WebSocket origin status=%d body=%s", response.StatusCode, body)
+	}
+
+	apiRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/field", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	apiRequest.Header.Set("Authorization", "Bearer rufield-token")
+	apiResponse, err := http.DefaultClient.Do(apiRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var surface rufield.Response
+	if apiResponse.StatusCode != http.StatusOK || json.NewDecoder(apiResponse.Body).Decode(&surface) != nil {
+		apiResponse.Body.Close()
+		t.Fatalf("authorized RuField API failed: status=%d", apiResponse.StatusCode)
+	}
+	apiResponse.Body.Close()
+	if surface.Spec != "rufield" || surface.Endpoint != "/api/field" || surface.DevSigningKey || len(surface.Events) != 0 {
+		t.Fatalf("unexpected empty RuField response: %+v", surface)
+	}
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/field"
+	header := http.Header{"Authorization": []string{"Bearer rufield-token"}}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	connection, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})
+	if err != nil {
+		t.Fatalf("authorized RuField WebSocket upgrade failed: %v", err)
+	}
+	defer connection.Close(websocket.StatusNormalClosure, "test complete")
+	update := state.SensingUpdate{
+		Type: "sensing_update", Timestamp: float64(time.Now().UnixNano()) / 1e9,
+		Source: "esp32:live", Classification: signal.Classification{Presence: true, MotionLevel: "present_moving", Confidence: 0.8},
+		Features: signal.FeatureInfo{MeanRSSI: -48, MotionBandPower: 0.4},
+		Nodes:    []state.NodeInfo{{NodeID: 5, RSSIDBm: -48}},
+	}
+	encoded, err := json.Marshal(update)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub.Publish(encoded)
+	_, frame, err := connection.Read(ctx)
+	if err != nil {
+		t.Fatalf("RuField WebSocket did not deliver a live event: %v", err)
+	}
+	var event rufield.FieldEvent
+	if err := json.Unmarshal(frame, &event); err != nil {
+		t.Fatalf("decode RuField event: %v", err)
+	}
+	if err := rufield.VerifyEvent(event); err != nil {
+		t.Fatalf("RuField event signature failed verification: %v", err)
+	}
+	if event.Observation.PrivacyClass != "P2" || event.Observation.TrackID != nil || event.Observation.IdentityEvidence != nil {
+		t.Fatalf("RuField emitted a non-anonymous or personal event: %+v", event.Observation)
+	}
+
+	apiRequest, err = http.NewRequest(http.MethodGet, server.URL+"/api/field", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	apiRequest.Header.Set("Authorization", "Bearer rufield-token")
+	apiResponse, err = http.DefaultClient.Do(apiRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer apiResponse.Body.Close()
+	var signedSurface rufield.Response
+	if apiResponse.StatusCode != http.StatusOK || json.NewDecoder(apiResponse.Body).Decode(&signedSurface) != nil || len(signedSurface.Events) != 1 {
+		t.Fatalf("privacy middleware changed the RuField response: status=%d", apiResponse.StatusCode)
+	}
+	if err := rufield.VerifyEvent(signedSurface.Events[0]); err != nil {
+		t.Fatalf("HTTP RuField event signature is invalid after privacy filtering: %v", err)
 	}
 }
 

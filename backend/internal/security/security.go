@@ -331,7 +331,9 @@ func PrivacyMiddleware(enabled bool, maxBytes int, next http.Handler) http.Handl
 		maxBytes = 16 << 20
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if (r.URL.Path != "/api/field" && !strings.HasPrefix(r.URL.Path, "/api/v1/")) ||
+		// RuField events are already reduced to P2-safe data before signing.
+		// Re-serializing their JSON here can alter signed numeric spellings.
+		if r.URL.Path == "/api/field" || !strings.HasPrefix(r.URL.Path, "/api/v1/") ||
 			strings.EqualFold(r.Header.Get("Upgrade"), "websocket") ||
 			strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/recording/download/") {

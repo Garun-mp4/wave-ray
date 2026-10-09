@@ -1,18 +1,32 @@
 services:
+  mqtt-test-broker:
+    image: eclipse-mosquitto:2.0.22
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
+    volumes:
+      - ./mosquitto-test.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-h", "127.0.0.1", "-t", "$$SYS/broker/uptime", "-C", "1", "-W", "2"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
   go-backend-tests:
     image: golang:1.27.2-bookworm
     working_dir: /workspace
     environment:
       CGO_ENABLED: "1"
       GOTOOLCHAIN: local
+      RUVIEW_MQTT_TEST_BROKER: mqtt-test-broker:1883
     volumes:
       - .:/workspace
       - go-module-cache:/go/pkg/mod
       - go-build-cache:/root/.cache/go-build
+    depends_on:
+      mqtt-test-broker:
+        condition: service_healthy
     command:
       - sh
       - -c
-      - gofmt -w $(find . -type f -name '*.go') && go test -mod=readonly ./... && go vet -mod=readonly ./...
+      - go mod tidy && go test -mod=readonly ./... && go vet -mod=readonly ./...
 
 volumes:
   go-module-cache:

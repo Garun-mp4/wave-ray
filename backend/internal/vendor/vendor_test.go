@@ -84,13 +84,16 @@ func TestScalarProviderAllowListsAndSyntheticProvenance(t *testing.T) {
 }
 
 func TestMistAndNetgearNormalizeClientPages(t *testing.T) {
-	mist := []byte(`{"results":[{"id":"aa:bb:cc:dd:ee:ff","timestamp":1710000000,"rssi":-47,"snr":31,"channel":44,"x":12.5,"y":8.25,"site_id":"site-1","ap_id":"ap-7"},{"client_id":"station-2","last_seen":1710000000123,"rssi_dbm":-62,"event_type":"client-info"}],"next_cursor":"page-2"}`)
+	mist := []byte(`{"results":[{"id":"aa:bb:cc:dd:ee:ff","timestamp":1710000000,"rssi":-47,"snr":31,"channel":44,"x":125,"y":82,"x_m":12.5,"y_m":8.25,"site_id":"site-1","ap_id":"ap-7"},{"client_id":"station-2","last_seen":1710000000123,"rssi_dbm":-62,"event_type":"client-info"}],"next_cursor":"page-2"}`)
 	events, err := Decode(Mist, mist)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(events) != 2 || events[0].TimestampUS != 1710000000000000 || events[1].TimestampUS != 1710000000123000 || events[0].Metrics["x_m"] != 12.5 || events[0].Label != "site-1/ap-7" {
 		t.Fatalf("unexpected Mist events: %+v", events)
+	}
+	if events[0].Metrics["y_m"] != 8.25 {
+		t.Fatalf("Mist meter coordinates were not mapped from their explicit units: %+v", events[0].Metrics)
 	}
 	netgear := []byte(`{"data":[{"clientId":"client-1","observedAt":"1710000000000000","signalStrength":-53,"signalToNoiseRatio":24,"channel":149,"txRateMbps":866.7,"rxRateMbps":721.2,"locationId":"office","accessPointId":"ap-2","ssidName":"lab"}],"pagination":{"next":"cursor-2"}}`)
 	events, err = Decode(Netgear, netgear)
@@ -99,6 +102,26 @@ func TestMistAndNetgearNormalizeClientPages(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].TimestampUS != 1710000000000000 || events[0].Metrics["tx_rate_mbps"] != 866.7 || events[0].Label != "office/ap-2/lab" {
 		t.Fatalf("unexpected NETGEAR event: %+v", events)
+	}
+}
+
+func TestProviderPageDecodersAcceptExplicitEmptyEventCollections(t *testing.T) {
+	for _, test := range []struct {
+		id      ID
+		payload string
+	}{
+		{Mist, `[]`},
+		{Mist, `{"results":[]}`},
+		{OriginAI, `{"events":[]}`},
+		{Plume, `{"observations":[]}`},
+	} {
+		events, err := Decode(test.id, []byte(test.payload))
+		if err != nil || len(events) != 0 {
+			t.Errorf("Decode(%s, %s) = %d events, %v", test.id, test.payload, len(events), err)
+		}
+	}
+	if _, err := Decode(Mist, []byte(`{"message":"not a client page"}`)); !errors.Is(err, ErrInvalidPayload) {
+		t.Fatalf("page without a record collection error=%v", err)
 	}
 }
 

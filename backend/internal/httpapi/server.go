@@ -26,12 +26,15 @@ import (
 	"github.com/ruvnet/ruview/backend/internal/calibration"
 	"github.com/ruvnet/ruview/backend/internal/config"
 	"github.com/ruvnet/ruview/backend/internal/csivendor"
+	"github.com/ruvnet/ruview/backend/internal/discovery"
 	"github.com/ruvnet/ruview/backend/internal/edgeregistry"
 	"github.com/ruvnet/ruview/backend/internal/ingest"
 	"github.com/ruvnet/ruview/backend/internal/localize"
 	"github.com/ruvnet/ruview/backend/internal/model"
+	"github.com/ruvnet/ruview/backend/internal/mqttbridge"
 	"github.com/ruvnet/ruview/backend/internal/oauth"
 	"github.com/ruvnet/ruview/backend/internal/recording"
+	"github.com/ruvnet/ruview/backend/internal/rufield"
 	"github.com/ruvnet/ruview/backend/internal/security"
 	"github.com/ruvnet/ruview/backend/internal/state"
 	"github.com/ruvnet/ruview/backend/internal/training"
@@ -57,10 +60,21 @@ type Server struct {
 	trainingErr     error
 	EdgeRegistry    *edgeregistry.Registry
 	Vendors         *vendor.Store
+	Poller          *vendor.Poller
+	MQTT            *mqttbridge.Publisher
+	Discovery       *discovery.Advertiser
+	Field           *rufield.Surface
 	Ingress         *ingest.Receiver
 	OAuth           *oauth.Service
 	Logger          *slog.Logger
 	adaptiveTrainMu sync.Mutex
+	serviceMu       sync.Mutex
+	serviceCancel   context.CancelFunc
+	serviceWG       sync.WaitGroup
+	servicesStarted bool
+	closed          bool
+	closeOnce       sync.Once
+	fieldErr        error
 }
 
 func New(cfg config.Config, store *state.Store, tickets *security.TicketStore, hosts *security.HostAllowlist, models *model.Registry, recordings *recording.Manager, logger *slog.Logger) *Server {
@@ -80,7 +94,11 @@ func New(cfg config.Config, store *state.Store, tickets *security.TicketStore, h
 	if !cfg.NoEdgeRegistry && cfg.EdgeRegistryURL != "" && cfg.EdgeRegistryTTL > 0 && cfg.EdgeRegistryTTL <= config.MaxEdgeRegistryTTLSeconds {
 		edgeRegistry = edgeregistry.New(cfg.EdgeRegistryURL, time.Duration(cfg.EdgeRegistryTTL)*time.Second)
 	}
-	server := &Server{Config: cfg, State: store, Tickets: tickets, Hosts: hosts, Hub: store.Hub(), Models: models, Recordings: recordings, EdgeRegistry: edgeRegistry, Vendors: vendor.NewStore(), Logger: logger}
+	fieldSurface, fieldErr := rufield.New(cfg.DataDir)
+	server := &Server{Config: cfg, State: store, Tickets: tickets, Hosts: hosts, Hub: store.Hub(), Models: models, Recordings: recordings, EdgeRegistry: edgeRegistry, Vendors: vendor.NewStore(), Field: fieldSurface, fieldErr: fieldErr, Logger: logger}
+	if fieldErr != nil {
+		logger.Error("RuField signing surface is unavailable", "reason", "signing_key_initialization_failed")
+	}
 	store.SetModelRegistry(models)
 	if strings.TrimSpace(cfg.DataDir) != "" {
 		server.Training, server.trainingErr = training.New(cfg.DataDir, models)
@@ -128,9 +146,140 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) Close() {
-	if s != nil && s.Training != nil {
-		s.Training.Close()
+	if s == nil {
+		return
 	}
+	s.closeOnce.Do(func() {
+		s.serviceMu.Lock()
+		s.closed = true
+		cancel := s.serviceCancel
+		s.serviceMu.Unlock()
+		if cancel != nil {
+			cancel()
+		}
+		s.serviceWG.Wait()
+		if s.Discovery != nil {
+			if err := s.Discovery.Close(); err != nil {
+				s.Logger.Warn("RuView local discovery shutdown failed", "reason", "advertiser_shutdown_failed")
+			}
+		}
+		if s.Field != nil {
+			s.Field.Close()
+		}
+		if s.Training != nil {
+			s.Training.Close()
+		}
+	})
+}
+
+// Start launches bounded background integration consumers. It is called once
+// by the server process after the process context has been created.
+func (s *Server) Start(ctx context.Context) error {
+	if s == nil {
+		return errors.New("HTTP API server is unavailable")
+	}
+	if s.Field == nil {
+		if s.fieldErr != nil {
+			return fmt.Errorf("RuField initialization: %w", s.fieldErr)
+		}
+		return errors.New("RuField surface is unavailable")
+	}
+	pollConfig, err := vendor.PollConfigFromEnv(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("vendor polling configuration: %w", err)
+	}
+	poller, err := vendor.NewPoller(pollConfig, s.Vendors, os.Getenv, s.Logger)
+	if err != nil {
+		return fmt.Errorf("vendor poller initialization: %w", err)
+	}
+	mqttConfig, mqttEnabled, err := mqttbridge.ConfigFromEnv(os.Getenv, s.Config.DataDir)
+	if err != nil {
+		return fmt.Errorf("MQTT configuration: %w", err)
+	}
+	var mqttPublisher *mqttbridge.Publisher
+	if mqttEnabled {
+		mqttPublisher, err = mqttbridge.New(mqttConfig, s.Hub, s.Logger)
+		if err != nil {
+			return fmt.Errorf("MQTT publisher initialization: %w", err)
+		}
+		if mqttConfig.TLS == nil && !mqttbridge.IsLoopbackHost(mqttConfig.Host) {
+			s.Logger.Warn("MQTT broker connection is plaintext; enable RUVIEW_MQTT_TLS for remote brokers", "host", mqttConfig.Host)
+		}
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	s.serviceMu.Lock()
+	defer s.serviceMu.Unlock()
+	if s.closed {
+		return errors.New("HTTP API background services are already closed")
+	}
+	if s.servicesStarted {
+		return errors.New("HTTP API background services already started")
+	}
+	s.servicesStarted = true
+	runCtx, cancel := context.WithCancel(ctx)
+	s.serviceCancel = cancel
+	s.Poller = poller
+	s.MQTT = mqttPublisher
+	mdnsSettings := discovery.Settings{
+		Disabled:         s.Config.NoMDNS,
+		BindAddress:      s.Config.BindAddr,
+		HTTPPort:         s.Config.HTTPPort,
+		InstallationID:   s.Config.InstallationID,
+		InstallationName: s.Config.InstallationName,
+	}
+	if discovery.ShouldAdvertise(mdnsSettings) {
+		advertiser, discoveryErr := discovery.Start(runCtx, mdnsSettings)
+		if discoveryErr != nil {
+			s.Logger.Warn("RuView local discovery unavailable; manual origin remains usable", "reason", "advertisement_unavailable")
+		} else if advertiser != nil {
+			s.Discovery = advertiser
+			s.Logger.Info("RuView local discovery advertised", "port", s.Config.HTTPPort)
+		}
+	}
+
+	if s.Hub != nil {
+		updates := s.Hub.Subscribe()
+		s.serviceWG.Add(1)
+		go func() {
+			defer s.serviceWG.Done()
+			defer updates.Close()
+			for {
+				select {
+				case <-runCtx.Done():
+					return
+				case frame, ok := <-updates.C:
+					if !ok {
+						return
+					}
+					var update state.SensingUpdate
+					if json.Unmarshal(frame, &update) != nil || update.Type != "sensing_update" {
+						continue
+					}
+					if _, emitErr := s.Field.Emit(update); emitErr != nil {
+						s.Logger.Warn("RuField event withheld", "reason", "invalid_sensing_update")
+					}
+				}
+			}
+		}()
+	}
+	if len(pollConfig.Sources) > 0 {
+		s.serviceWG.Add(1)
+		go func() {
+			defer s.serviceWG.Done()
+			poller.Run(runCtx)
+		}()
+	}
+	if mqttPublisher != nil {
+		s.serviceWG.Add(1)
+		go func() {
+			defer s.serviceWG.Done()
+			mqttPublisher.Run(runCtx)
+		}()
+	}
+	return nil
 }
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
@@ -146,8 +295,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /oauth/start", s.oauthStart)
 	mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
 	mux.HandleFunc("GET /oauth/logout", s.oauthLogout)
-	mux.HandleFunc("GET /api/field", s.fieldSurfaceUnavailable)
-	mux.HandleFunc("GET /ws/field", s.fieldSocketUnavailable)
+	mux.HandleFunc("GET /api/field", s.fieldSurface)
+	mux.HandleFunc("GET /ws/field", s.fieldSocket)
 	mux.HandleFunc("GET /api/v1/info", s.apiInfo)
 	mux.HandleFunc("GET /api/v1/status", s.healthReady)
 	mux.HandleFunc("GET /api/v1/metrics", s.healthMetrics)
@@ -177,6 +326,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/csi/realtek/latest", s.vendorCSILatest)
 	mux.HandleFunc("GET /api/v1/radar/latest", s.latestRadar)
 	mux.HandleFunc("GET /api/v1/rf/vendors", s.vendorsUnavailable)
+	mux.HandleFunc("GET /api/v1/rf/vendors/status", s.vendorPollStatus)
+	mux.HandleFunc("GET /api/v1/integrations/mqtt/status", s.mqttIntegrationStatus)
 	mux.HandleFunc("GET /api/v1/rf/vendors/latest", s.vendorLatestUnavailable)
 	mux.HandleFunc("GET /api/v1/rf/vendors/{vendor}/latest", s.vendorLatestUnavailable)
 	mux.HandleFunc("POST /api/v1/rf/vendors/{vendor}/events", s.vendorIngestUnavailable)
@@ -1016,6 +1167,22 @@ func (s *Server) vendorsUnavailable(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, vendor.Descriptors())
 }
 
+func (s *Server) vendorPollStatus(w http.ResponseWriter, _ *http.Request) {
+	if s.Poller == nil {
+		writeJSON(w, http.StatusOK, []vendor.PollStatus{})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.Poller.Status())
+}
+
+func (s *Server) mqttIntegrationStatus(w http.ResponseWriter, _ *http.Request) {
+	if s.MQTT == nil {
+		writeJSON(w, http.StatusOK, mqttbridge.Status{Enabled: false, State: "disabled"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.MQTT.Status())
+}
+
 func (s *Server) vendorLatestUnavailable(w http.ResponseWriter, r *http.Request) {
 	if vendorName := r.PathValue("vendor"); vendorName != "" {
 		id := vendor.ID(vendorName)
@@ -1709,15 +1876,20 @@ func (s *Server) trainingSocket(w http.ResponseWriter, r *http.Request) {
 	s.streamSocket(w, r, "training")
 }
 
-func (s *Server) fieldSurfaceUnavailable(w http.ResponseWriter, _ *http.Request) {
-	writeError(w, http.StatusNotImplemented, "rufield_unavailable", "signed RuField event conversion and its trust and privacy gates have not been migrated to Go")
-}
-
-func (s *Server) fieldSocketUnavailable(w http.ResponseWriter, r *http.Request) {
-	if !s.authorizeSocket(w, r) || !s.validateSocketOrigin(w, r) {
+func (s *Server) fieldSurface(w http.ResponseWriter, _ *http.Request) {
+	if s.Field == nil {
+		writeError(w, http.StatusServiceUnavailable, "rufield_unavailable", "the RuField signing surface could not initialize")
 		return
 	}
-	writeError(w, http.StatusNotImplemented, "rufield_unavailable", "the signed RuField event stream has not been migrated to Go")
+	writeJSON(w, http.StatusOK, s.Field.Snapshot())
+}
+
+func (s *Server) fieldSocket(w http.ResponseWriter, r *http.Request) {
+	if s.Field == nil {
+		writeError(w, http.StatusServiceUnavailable, "rufield_unavailable", "the RuField signing surface could not initialize")
+		return
+	}
+	s.streamSocket(w, r, "field")
 }
 
 func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic string) {
@@ -1804,10 +1976,16 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 		}
 	}
 	var sub *stream.Subscription
-	if topic == "sensing" || topic == "pose" {
+	if topic == "field" {
+		sub = s.Field.Subscribe()
+	} else if topic == "sensing" || topic == "pose" {
 		sub = s.Hub.SubscribeClient()
 	} else {
 		sub = s.Hub.Subscribe()
+	}
+	if sub == nil {
+		writeError(w, http.StatusServiceUnavailable, "stream_unavailable", "the requested stream is unavailable")
+		return
 	}
 	defer sub.Close()
 	if topic == "pose" {
@@ -1820,7 +1998,7 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 	}
 	var pingTicker *time.Ticker
 	var pingC <-chan time.Time
-	if topic == "sensing" || topic == "pose" {
+	if topic == "sensing" || topic == "pose" || topic == "field" {
 		pingTicker = time.NewTicker(30 * time.Second)
 		pingC = pingTicker.C
 		defer pingTicker.Stop()
@@ -1849,14 +2027,14 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 			if !ok {
 				return
 			}
-			if s.Config.PrivacyMode {
+			if s.Config.PrivacyMode && topic != "field" {
 				filtered, filterErr := security.RedactJSON(frame, 16<<20)
 				if filterErr != nil {
 					return
 				}
 				frame = filtered
 			}
-			if topic != "sensing" {
+			if topic != "sensing" && topic != "field" {
 				frame, err = streamProjection(topic, frame)
 				if err != nil {
 					return

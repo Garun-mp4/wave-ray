@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -51,6 +53,9 @@ type Config struct {
 	NoEdgeRegistry       bool
 	EdgeRegistryURL      string
 	EdgeRegistryTTL      uint64
+	NoMDNS               bool
+	InstallationID       string
+	InstallationName     string
 }
 
 func defaults(getenv func(string) string) (Config, error) {
@@ -73,6 +78,10 @@ func defaults(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	noEdgeRegistry, err := parseBool(getenv("RUVIEW_NO_EDGE_REGISTRY"), "RUVIEW_NO_EDGE_REGISTRY")
+	if err != nil {
+		return Config{}, err
+	}
+	noMDNS, err := parseBool(getenv("RUVIEW_NO_MDNS"), "RUVIEW_NO_MDNS")
 	if err != nil {
 		return Config{}, err
 	}
@@ -122,6 +131,9 @@ func defaults(getenv func(string) string) (Config, error) {
 		NoEdgeRegistry:       noEdgeRegistry,
 		EdgeRegistryURL:      envOr(getenv, "RUVIEW_EDGE_REGISTRY_URL", DefaultEdgeRegistryURL),
 		EdgeRegistryTTL:      edgeRegistryTTL,
+		NoMDNS:               noMDNS,
+		InstallationID:       envOr(getenv, "RUVIEW_INSTALLATION_ID", "installation"),
+		InstallationName:     envOr(getenv, "RUVIEW_INSTALLATION_NAME", "RuView Installation"),
 	}, nil
 }
 
@@ -203,6 +215,9 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	fs.StringVar(&cfg.EdgeRegistryURL, "edge-registry-url", cfg.EdgeRegistryURL, "edge registry URL")
 	fs.Uint64Var(&cfg.EdgeRegistryTTL, "edge-registry-ttl-secs", cfg.EdgeRegistryTTL, "edge registry cache TTL in seconds")
 	fs.BoolVar(&cfg.NoEdgeRegistry, "no-edge-registry", cfg.NoEdgeRegistry, "disable remote edge registry lookup")
+	fs.BoolVar(&cfg.NoMDNS, "no-mdns", cfg.NoMDNS, "disable local RuView service discovery")
+	fs.StringVar(&cfg.InstallationID, "installation-id", cfg.InstallationID, "stable, non-secret local discovery identifier")
+	fs.StringVar(&cfg.InstallationName, "installation-name", cfg.InstallationName, "human-readable local discovery service name")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -260,6 +275,12 @@ func (c Config) Validate() error {
 	}
 	if c.TickMS == 0 || c.TickMS > 60_000 {
 		return errors.New("tick-ms must be between 1 and 60000")
+	}
+	if !utf8.ValidString(c.InstallationID) || strings.TrimSpace(c.InstallationID) == "" || len(c.InstallationID) > 128 || strings.ContainsFunc(c.InstallationID, unicode.IsControl) {
+		return errors.New("installation-id must be non-empty UTF-8, at most 128 bytes, and contain no control characters")
+	}
+	if !utf8.ValidString(c.InstallationName) || strings.TrimSpace(c.InstallationName) == "" || len(c.InstallationName) > 63 || strings.ContainsFunc(c.InstallationName, unicode.IsControl) {
+		return errors.New("installation-name must be non-empty UTF-8, at most 63 bytes, and contain no control characters")
 	}
 	switch strings.ToLower(c.Source) {
 	case "auto", "esp32", "wifi", "simulate", "simulated":

@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoadDefaultsLoopback(t *testing.T) {
 	cfg, err := Load(nil, func(string) string { return "" })
@@ -12,6 +15,9 @@ func TestLoadDefaultsLoopback(t *testing.T) {
 	}
 	if cfg.EdgeRegistryURL != DefaultEdgeRegistryURL || cfg.EdgeRegistryTTL != DefaultEdgeRegistryTTLSecond {
 		t.Fatalf("unexpected edge registry defaults: %+v", cfg)
+	}
+	if cfg.NoMDNS || cfg.InstallationID != "installation" || cfg.InstallationName != "RuView Installation" {
+		t.Fatalf("unexpected discovery defaults: %+v", cfg)
 	}
 }
 
@@ -37,19 +43,20 @@ func TestBooleanEnvironmentValuesUseCommonSpellings(t *testing.T) {
 		"RUVIEW_ALLOW_UNAUTHENTICATED": "off",
 		"RUVIEW_UDP_INSECURE_LAN":      "0",
 		"RUVIEW_NO_EDGE_REGISTRY":      "on",
+		"RUVIEW_NO_MDNS":               "yes",
 	}
 	cfg, err := Load(nil, func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.PrivacyMode || cfg.AllowUnauthenticated || cfg.UDPInsecureLAN || !cfg.NoEdgeRegistry {
+	if !cfg.PrivacyMode || cfg.AllowUnauthenticated || cfg.UDPInsecureLAN || !cfg.NoEdgeRegistry || !cfg.NoMDNS {
 		t.Fatalf("environment booleans were not parsed as expected: %+v", cfg)
 	}
 }
 
 func TestInvalidBooleanEnvironmentValuesAreRejected(t *testing.T) {
 	for _, name := range []string{
-		"RUVIEW_PRIVACY_MODE", "RUVIEW_ALLOW_UNAUTHENTICATED", "RUVIEW_UDP_INSECURE_LAN", "RUVIEW_NO_EDGE_REGISTRY",
+		"RUVIEW_PRIVACY_MODE", "RUVIEW_ALLOW_UNAUTHENTICATED", "RUVIEW_UDP_INSECURE_LAN", "RUVIEW_NO_EDGE_REGISTRY", "RUVIEW_NO_MDNS",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := Load(nil, func(key string) string {
@@ -60,6 +67,38 @@ func TestInvalidBooleanEnvironmentValuesAreRejected(t *testing.T) {
 			})
 			if err == nil {
 				t.Fatal("invalid boolean silently changed server configuration")
+			}
+		})
+	}
+}
+
+func TestInstallationDiscoveryConfigurationIsBounded(t *testing.T) {
+	cfg, err := Load(nil, func(key string) string {
+		return map[string]string{
+			"RUVIEW_NO_MDNS":           "false",
+			"RUVIEW_INSTALLATION_ID":   "home-lab_1",
+			"RUVIEW_INSTALLATION_NAME": "RuView upstairs",
+		}[key]
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.NoMDNS || cfg.InstallationID != "home-lab_1" || cfg.InstallationName != "RuView upstairs" {
+		t.Fatalf("discovery settings were not applied: %+v", cfg)
+	}
+	for name, value := range map[string]string{
+		"RUVIEW_INSTALLATION_ID":   strings.Repeat("x", 129),
+		"RUVIEW_INSTALLATION_NAME": strings.Repeat("x", 64),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Load(nil, func(key string) string {
+				if key == name {
+					return value
+				}
+				return ""
+			})
+			if err == nil {
+				t.Fatalf("unbounded %s was accepted", name)
 			}
 		})
 	}

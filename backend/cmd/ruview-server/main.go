@@ -24,6 +24,7 @@ import (
 	"github.com/ruvnet/ruview/backend/internal/security"
 	"github.com/ruvnet/ruview/backend/internal/source"
 	"github.com/ruvnet/ruview/backend/internal/state"
+	"github.com/ruvnet/ruview/backend/internal/telemetry"
 	"github.com/ruvnet/ruview/backend/internal/ws"
 )
 
@@ -54,7 +55,25 @@ func run(args []string) error {
 		return fmt.Errorf("data-dir must be a directory: %s", cfg.DataDir)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	previousLogger := slog.Default()
+	logger, shutdownTelemetry, telemetryEnabled, telemetryErr := telemetry.NewLogger(os.Stdout, os.Getenv)
+	slog.SetDefault(logger)
+	defer func() {
+		if telemetryErr != nil {
+			logger.Warn("OTLP log export unavailable; local logging remains active", "reason", "exporter_initialization_failed")
+		}
+		if telemetryEnabled && shutdownTelemetry != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := shutdownTelemetry(shutdownCtx); err != nil {
+				logger.Warn("OTLP log export did not flush cleanly", "reason", "exporter_shutdown_failed")
+			}
+			cancel()
+		}
+		slog.SetDefault(previousLogger)
+	}()
+	if telemetryEnabled {
+		logger.Info("OTLP log export enabled", "service", telemetry.ServiceName)
+	}
 	hub := ws.NewHub()
 	store := state.New(cfg.Source, hub)
 	if cfg.PoseModelPath != "" {
@@ -141,6 +160,9 @@ func run(args []string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if err := api.Start(ctx); err != nil {
+		return fmt.Errorf("start background integrations: %w", err)
+	}
 	refreshDone := make(chan struct{})
 	go runStateRefresh(ctx, store, time.Duration(cfg.TickMS)*time.Millisecond, refreshDone)
 	var automatic *source.Automatic

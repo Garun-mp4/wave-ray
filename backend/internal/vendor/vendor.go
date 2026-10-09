@@ -216,6 +216,41 @@ func Decode(id ID, payload []byte) ([]Event, error) {
 	}
 }
 
+// DecodePage decodes a paginated cloud response for Mist or NETGEAR Insight
+// and returns its validated continuation cursor. Other providers use their
+// event-envelope decoders through Decode.
+func DecodePage(id ID, payload []byte) ([]Event, string, error) {
+	if id != Mist && id != Netgear {
+		return nil, "", ErrUnsupported
+	}
+	if len(payload) == 0 || len(payload) > MaxPayload {
+		return nil, "", ErrInvalidPayload
+	}
+	descriptor, ok := DescriptorFor(id)
+	if !ok {
+		return nil, "", ErrCapabilityMismatch
+	}
+	page, err := parseClientPage(payload)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(page.Records) > MaxPage {
+		return nil, "", ErrInvalidPayload
+	}
+	events := make([]Event, 0, len(page.Records))
+	for index, record := range page.Records {
+		event, parseErr := parseClientRecord(id, record, index)
+		if parseErr != nil {
+			return nil, "", parseErr
+		}
+		if validateErr := event.Validate(descriptor); validateErr != nil {
+			return nil, "", validateErr
+		}
+		events = append(events, event)
+	}
+	return events, page.NextCursor, nil
+}
+
 type originEnvelope struct {
 	Events []originEvent `json:"events"`
 }
@@ -234,7 +269,7 @@ func decodeOrigin(payload []byte, descriptor Descriptor) ([]Event, error) {
 	if err := decodeStrict(payload, &envelope); err != nil {
 		return nil, err
 	}
-	if len(envelope.Events) == 0 || len(envelope.Events) > MaxBatch {
+	if envelope.Events == nil || len(envelope.Events) > MaxBatch {
 		return nil, ErrInvalidPayload
 	}
 	result := make([]Event, 0, len(envelope.Events))
@@ -297,7 +332,7 @@ func decodePlume(payload []byte, descriptor Descriptor) ([]Event, error) {
 	if err := decodeStrict(payload, &envelope); err != nil {
 		return nil, err
 	}
-	if len(envelope.Observations) == 0 || len(envelope.Observations) > MaxBatch {
+	if envelope.Observations == nil || len(envelope.Observations) > MaxBatch {
 		return nil, ErrInvalidPayload
 	}
 	result := make([]Event, 0, len(envelope.Observations))
@@ -394,25 +429,8 @@ type vendorPage struct {
 }
 
 func decodeClientPage(payload []byte, descriptor Descriptor) ([]Event, error) {
-	page, err := parseClientPage(payload)
-	if err != nil {
-		return nil, err
-	}
-	if len(page.Records) == 0 || len(page.Records) > MaxPage {
-		return nil, ErrInvalidPayload
-	}
-	result := make([]Event, 0, len(page.Records))
-	for index, record := range page.Records {
-		event, err := parseClientRecord(descriptor.Vendor, record, index)
-		if err != nil {
-			return nil, err
-		}
-		if err = event.Validate(descriptor); err != nil {
-			return nil, err
-		}
-		result = append(result, event)
-	}
-	return result, nil
+	result, _, err := DecodePage(descriptor.Vendor, payload)
+	return result, err
 }
 
 func parseClientPage(payload []byte) (vendorPage, error) {
@@ -430,11 +448,16 @@ func parseClientPage(payload []byte) (vendorPage, error) {
 	case []any:
 		records = value
 	case map[string]any:
+		recordsFound := false
 		for _, key := range []string{"results", "data", "clients", "events", "items"} {
 			if candidate, ok := value[key].([]any); ok {
 				records = candidate
+				recordsFound = true
 				break
 			}
+		}
+		if !recordsFound {
+			return vendorPage{}, ErrInvalidPayload
 		}
 		var nextCursor string
 		cursorFound := false
@@ -510,7 +533,7 @@ func parseClientRecord(id ID, record map[string]json.RawMessage, index int) (Eve
 			name     string
 			keys     []string
 			min, max float64
-		}{{"rssi_dbm", []string{"rssi", "rssi_dbm"}, -150, 20}, {"snr_db", []string{"snr"}, -50, 100}, {"channel", []string{"channel"}, 1, 7000}, {"x_m", []string{"x"}, -1e6, 1e6}, {"y_m", []string{"y"}, -1e6, 1e6}} {
+		}{{"rssi_dbm", []string{"rssi", "rssi_dbm"}, -150, 20}, {"snr_db", []string{"snr"}, -50, 100}, {"channel", []string{"channel"}, 1, 7000}, {"x_m", []string{"x_m"}, -1e6, 1e6}, {"y_m", []string{"y_m"}, -1e6, 1e6}} {
 			if err := readOptionalMetric(record, metrics, metric.name, metric.min, metric.max, metric.keys...); err != nil {
 				return Event{}, err
 			}
@@ -848,6 +871,18 @@ func (s *Store) Latest(id ID) (Snapshot, bool) {
 	snapshot.Event = cloneEvent(snapshot.Event)
 	return snapshot, true
 }
+
+// Delete removes stale data after a provider successfully reports an empty
+// client/event page. An empty result is a healthy snapshot, not a fake event.
+func (s *Store) Delete(id ID) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	delete(s.latest, id)
+	s.mu.Unlock()
+}
+
 func (s *Store) All() map[string]Snapshot {
 	result := make(map[string]Snapshot)
 	if s == nil {

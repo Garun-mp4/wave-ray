@@ -13,9 +13,9 @@ From the repository root:
 docker compose -f backend/docker-compose.test.yml run --rm go-backend-tests
 ```
 
-The Compose check formats Go sources, runs the package tests, and runs `go vet`.
-The pinned toolchain and caches stay inside Docker; the source directory is
-mounted so formatting changes remain reviewable in the checkout.
+The Compose check runs package tests, an opt-in local Mosquitto integration
+test, and `go vet`. It keeps the pinned Go toolchain and dependencies inside
+Docker. Format changed Go files explicitly in the container when needed.
 
 ## Run the Go migration server in Docker Compose
 
@@ -66,6 +66,69 @@ can override it with `RUVIEW_ACTIVITY_STATE` or pass
 restores at startup and writes an atomic, permission-restricted JSON state file
 at shutdown and once per minute. The activity history itself is an in-memory
 five-minute ring and is rebuilt from incoming frames after restart.
+
+## Cloud, discovery, telemetry, and MQTT integrations
+
+Cloud polling is opt-in per provider. Configure a Mist site with
+`RUVIEW_MIST_SITE_ID` and `MIST_API_TOKEN`. `RUVIEW_MIST_REGION` accepts
+`global_01`–`global_05`, `emea_01`–`emea_04`, and `apac_01`–`apac_03`; `global`
+and `europe`/`eu` are aliases for Global 01 and EMEA 01. Mist uses its documented
+`Token` authorization scheme and JSON:API-compatible Accept header. NETGEAR
+Insight API access is partner/MSP-gated, so the server does not guess a cloud
+host or resource path. Configure a partner-approved `RUVIEW_NETGEAR_LOCATION_ID`,
+`RUVIEW_NETGEAR_BASE_URL`, `RUVIEW_NETGEAR_CLIENTS_PATH`, and
+`NETGEAR_INSIGHT_TOKEN`; the path must include `{location_id}` and its response
+must use the supported client-page envelope. These partner-specific endpoint
+schemas have not been validated with a NETGEAR account. Origin AI uses
+`RUVIEW_ORIGIN_AI_BASE_URL`, `RUVIEW_ORIGIN_AI_EVENTS_PATH`, and
+`ORIGIN_AI_TOKEN`. Plume/OpenSync uses `RUVIEW_PLUME_BASE_URL` and
+`RUVIEW_PLUME_EVENTS_PATH`, with optional authentication configured by
+`RUVIEW_PLUME_TOKEN_ENV`. These clients use bounded HTTPS polling and require
+responses in the existing RuView vendor event contract. Origin AI and
+Plume/OpenSync are configured northbound adapters, not native vendor API
+implementations. Plume's path must return the observation envelope; raw OVSDB
+responses are not decoded as person detections. Poll status is available at
+`GET /api/v1/rf/vendors/status`; it never returns credential values. Cloud
+records describe network clients and RF telemetry, not verified human
+detections or privacy-safe personal identifiers.
+
+The optional local DNS-SD advertisement starts on non-loopback binds. It
+publishes the `_ruview._tcp.local` service and only a schema marker, a transport
+flag, and the configured installation routing hint. It carries no CSI, sensor
+values, room data, or credentials. Disable it with `RUVIEW_NO_MDNS=true`; set
+`RUVIEW_INSTALLATION_ID` and `RUVIEW_INSTALLATION_NAME` to customize the
+non-secret service metadata. The Compose runtime disables mDNS by default
+because Docker's bridge network does not forward LAN multicast.
+
+OTLP log export is optional. Set `OTEL_EXPORTER_OTLP_ENDPOINT` or
+`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` to send structured Go logs over OTLP/gRPC.
+The server continues writing local text logs and flushes the bounded export
+queue during graceful shutdown. The exporter reads its standard OTLP headers,
+TLS, and timeout environment variables; any certificate paths must exist
+inside the container.
+
+`GET /api/field` and `GET /ws/field` expose RuField v0.1-shaped events signed
+with a persistent per-install Ed25519 key. The bridge emits aggregate CSI
+features plus anonymous P2 presence/motion; it omits unverified coordinates,
+person identity, pose, numeric vital rates, and raw CSI frames. The signer
+public key is included with the response. Event signatures are checked before
+an event enters the ring or WebSocket feed, using the RuField field order and
+float encoding. A valid signature proves event integrity, not key enrollment
+or sensing accuracy.
+
+Home Assistant MQTT publishing is disabled by default. Enable it with
+`RUVIEW_MQTT=true` and set `RUVIEW_MQTT_HOST`; optional credentials come from
+`RUVIEW_MQTT_USERNAME` and the environment variable named by
+`RUVIEW_MQTT_PASSWORD_ENV` (default `MQTT_PASSWORD`). Enable TLS with
+`RUVIEW_MQTT_TLS=true`, optionally provide a CA file and both client certificate
+and key, and set `RUVIEW_MQTT_PORT` for a non-default port. Discovery uses the
+`homeassistant` prefix; a persistent client ID is kept in the Docker data
+volume unless `RUVIEW_MQTT_CLIENT_ID` is set. The publisher announces coarse
+per-node presence/motion and RSSI only. It does not publish person counts,
+positions, pose, identity, heart rate, breathing rate, or raw CSI because this
+Go runtime does not have the trust gates needed to authorize those outputs.
+Synthetic input is not sent to MQTT. Check
+`GET /api/v1/integrations/mqtt/status` for connection state.
 
 Adaptive activity models are stored at `/app/data/adaptive_model.json` in the
 same persistent volume. Put labeled recordings named
@@ -229,8 +292,7 @@ promotion/refinement also remain unavailable.
 The server's API, source selection, model/recording registry, signal processing,
 mesh status, and WebSocket streaming are still a partial port. Metric
 localization, pose inference, pose-model training, calibrated field scoring,
-vendor radar adapters, signed RuField events, and several external integrations
-have not yet been migrated. Scalar vendor RF event
+and vendor radar adapters have not yet been migrated. Scalar vendor RF event
 decoders and REST ingestion are implemented; provider descriptors mark required
 credentials, contracts, experimental capability, and unsupported devices. They
 do not produce complex CSI or claim hardware validation. Separate MTC1, QCS1,
@@ -253,9 +315,8 @@ RTL8720F bridge packets and returns aggregate range/CFR summaries; raw radar
 bins are not returned. These project bridge formats are not vendor firmware
 ABIs and have not been validated against physical hardware.
 Unsupported endpoints report an explicit unavailable state rather than
-fabricating detections. The
-legacy Rust RuField routes `/api/field` and `/ws/field` return `501` until the Go
-trust, signature, and privacy-egress contracts are implemented.
+fabricating detections. Separate Homecore and Matter products are outside this
+sensing-server migration.
 
 ## Vendor RF event API
 
@@ -269,8 +330,8 @@ with `sensing:read`.
 
 These are scalar event adapters, not CSI decoders. Provider descriptors state
 whether a contract, credentials, or experimental bridge is required; Linksys
-and WiFiGarden fail closed. No vendor cloud polling client or physical vendor
-hardware validation is included in this migration slice.
+and WiFiGarden fail closed. Cloud polling is documented above; account-backed
+provider validation and physical vendor-hardware validation are not included.
 
 ## Vendor CSI UDP snapshots
 
