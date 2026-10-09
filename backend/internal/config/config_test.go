@@ -275,3 +275,28 @@ func TestWiFiSourceIsAcceptedForRuntimePlatformValidation(t *testing.T) {
 		t.Fatalf("source=%q, want wifi", cfg.Source)
 	}
 }
+
+func TestSourceEnvironmentIsHonoredUnlessExplicitFlagOverridesIt(t *testing.T) {
+	getenv := func(key string) string {
+		if key == "CSI_SOURCE" {
+			return "simulate"
+		}
+		return ""
+	}
+
+	cfg, err := Load(nil, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Source != "simulate" {
+		t.Fatalf("source=%q, want environment value simulate", cfg.Source)
+	}
+
+	cfg, err = Load([]string{"--source", "esp32"}, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Source != "esp32" {
+		t.Fatalf("source=%q, want explicit flag value esp32", cfg.Source)
+	}
+}

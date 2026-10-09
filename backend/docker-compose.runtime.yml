@@ -5,9 +5,9 @@ services:
       dockerfile: backend/Dockerfile
     image: ruvnet/ruview-go-backend:migration
     ports:
-      - "127.0.0.1:3000:3000/tcp"
-      - "127.0.0.1:3001:3001/tcp"
-      - "${RUVIEW_UDP_PUBLISH_ADDR:-0.0.0.0}:5005:5005/udp"
+      - "${RUVIEW_HTTP_PUBLISH_ADDR:-127.0.0.1}:3000:3000/tcp"
+      - "${RUVIEW_WS_PUBLISH_ADDR:-127.0.0.1}:3001:3001/tcp"
+      - "${RUVIEW_UDP_PUBLISH_ADDR:-0.0.0.0}:${RUVIEW_UDP_HOST_PORT:-5005}:5005/udp"
     environment:
       RUVIEW_API_TOKEN: "${RUVIEW_API_TOKEN:-}"
       RUVIEW_OAUTH_ISSUER: "${RUVIEW_OAUTH_ISSUER:-}"

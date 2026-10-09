@@ -5,11 +5,13 @@ on:
     branches: [main, develop, 'feature/*', 'feat/*', 'hotfix/*']
     paths:
       - 'backend/**'
+      - 'docker/docker-compose.yml'
       - '.github/workflows/go-backend.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'backend/**'
+      - 'docker/docker-compose.yml'
       - '.github/workflows/go-backend.yml'
   workflow_dispatch:
 
@@ -44,6 +46,10 @@ jobs:
             exit 1
           fi
 
+      - name: Check module tidiness
+        working-directory: backend
+        run: go mod tidy -diff
+
       - name: Test with race detector
         working-directory: backend
         run: go test -race ./...
@@ -59,3 +65,24 @@ jobs:
       - name: Build server
         working-directory: backend
         run: go build -trimpath -o "$RUNNER_TEMP/ruview-server" ./cmd/ruview-server
+
+      - name: Build and smoke-test the default Compose service
+        env:
+          CSI_SOURCE: simulate
+          RUVIEW_API_TOKEN: go-backend-ci-smoke-token
+          RUVIEW_UDP_ALLOW: 127.0.0.1
+          RUVIEW_UDP_PUBLISH_ADDR: 127.0.0.1
+        run: |
+          set -euo pipefail
+          docker compose -f docker/docker-compose.yml config --quiet
+          trap 'docker compose -f docker/docker-compose.yml stop sensing-server >/dev/null' EXIT
+          docker compose -f docker/docker-compose.yml up -d --build --wait --wait-timeout 90 sensing-server
+
+          curl -fsS http://127.0.0.1:3000/health/live >/dev/null
+          root_status=$(curl -sS -L -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)
+          test "$root_status" = "200"
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/v1/info)
+          test "$status" = "401"
+          info=$(curl -fsS -H "Authorization: Bearer ${RUVIEW_API_TOKEN}" \
+            http://127.0.0.1:3000/api/v1/info)
+          printf '%s' "$info" | jq -e '.backend == "go" and .source == "simulate" and .features.person_localization == false and .features.calibrated_vitals == false' >/dev/null

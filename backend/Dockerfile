@@ -27,4 +27,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl --fail --silent http://127.0.0.1:3000/health/live >/dev/null || exit 1
 
 ENTRYPOINT ["/app/ruview-server"]
-CMD ["--bind-addr", "0.0.0.0", "--http-port", "3000", "--ws-port", "3001", "--udp-bind-addr", "0.0.0.0", "--udp-port", "5005", "--static-dir", "/app/ui", "--data-dir", "/app/data", "--models-dir", "/app/data/models", "--source", "esp32"]
+CMD ["--bind-addr", "0.0.0.0", "--http-port", "3000", "--ws-port", "3001", "--udp-bind-addr", "0.0.0.0", "--udp-port", "5005", "--static-dir", "/app/ui", "--data-dir", "/app/data", "--models-dir", "/app/data/models"]

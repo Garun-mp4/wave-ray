@@ -1,9 +1,11 @@
-# Go sensing backend (migration in progress)
+# Go sensing backend
 
-The Go server is being migrated and is not yet the default Docker/Compose
-backend. The Go SDK and module dependencies are kept in Docker for this project;
-no host Go installation is required. See [MIGRATION_STATUS.md](MIGRATION_STATUS.md)
-for the current feature matrix and remaining gaps.
+The repository's default sensing Compose service now builds and runs the Go
+server. The migration is still in progress: the feature matrix lists functions
+that deliberately remain unavailable or experimental, and this is not a claim
+of validated localization or pose accuracy. The Go SDK and module dependencies
+stay in Docker; no host Go installation is required. See
+[MIGRATION_STATUS.md](MIGRATION_STATUS.md) for the current evidence and limits.
 
 ## Run Go checks through Docker Compose
 
@@ -14,31 +16,59 @@ docker compose -f backend/docker-compose.test.yml run --rm go-backend-tests
 ```
 
 The Compose check runs package tests, an opt-in local Mosquitto integration
-test, and `go vet`. It keeps the pinned Go toolchain and dependencies inside
-Docker. Format changed Go files explicitly in the container when needed.
+test, and `go vet` with module writes disabled. It keeps the pinned Go toolchain
+and dependencies inside Docker and does not rewrite `go.mod` or `go.sum`. CI
+also checks module tidiness in its Linux runner. Format changed Go files
+explicitly in the container when needed.
 
-## Run the Go migration server in Docker Compose
+## Run the default Go server in Docker Compose
 
-The Go image and `docker-compose.runtime.yml` are an isolated migration
-runtime; the repository's main Compose still uses Rust until API and feature
-parity are accepted. From the repository root in PowerShell, select either
-static-token authentication or OAuth and set the permitted UDP sender:
+From the repository root in PowerShell, generate a 256-bit API token and
+select the UDP sender allowlist. For a computer without an ESP32, use the
+explicitly synthetic source and keep the UDP port on loopback:
 
 ```powershell
-$env:RUVIEW_API_TOKEN = "<long-random-token>"
-$env:RUVIEW_UDP_ALLOW = "<ESP32-sender-IP-or-CIDR>"
-docker compose -f backend/docker-compose.runtime.yml up --build
+$tokenRng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$tokenBytes = New-Object byte[] 32
+$tokenRng.GetBytes($tokenBytes)
+$env:RUVIEW_API_TOKEN = [System.BitConverter]::ToString($tokenBytes).Replace("-", "").ToLowerInvariant()
+$tokenRng.Dispose()
+$tokenBytes = $null
+$env:RUVIEW_UDP_ALLOW = "127.0.0.1"
+$env:RUVIEW_UDP_PUBLISH_ADDR = "127.0.0.1"
+$env:CSI_SOURCE = "simulate"
+docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
-For Cognitum browser sign-in and scoped OAuth bearer tokens, configure the
-issuer instead of `RUVIEW_API_TOKEN`:
+For a connected ESP32, switch the source and set the permitted sender address.
+If the same PowerShell session was used for the loopback simulation above,
+clear its loopback-only publish setting before starting hardware mode:
+
+```powershell
+$env:CSI_SOURCE = "esp32"
+$env:RUVIEW_UDP_ALLOW = "<ESP32-sender-IP-or-CIDR>"
+Remove-Item Env:RUVIEW_UDP_PUBLISH_ADDR -ErrorAction SilentlyContinue
+Remove-Item Env:RUVIEW_UDP_HOST_PORT -ErrorAction SilentlyContinue
+docker compose -f docker/docker-compose.yml up --build sensing-server
+```
+
+Docker Desktop on Windows may rewrite UDP source addresses; see the UDP relay
+guidance in `docs/TROUBLESHOOTING.md`. When using that relay with multiple
+devices, set `RUVIEW_UDP_HOST_PORT=5006` and allow the address the container
+sees from the relay, which may differ from the ESP32 sender IP.
+The Go server honours `CSI_SOURCE` from the Compose environment; an explicit
+`--source` CLI flag overrides it.
+
+The HTTP/UI ports are loopback-only by default. The API token is required when
+the Go server binds a routable address. For Cognitum browser sign-in and scoped
+OAuth bearer tokens, configure the issuer instead of the static token:
 
 ```powershell
 $env:RUVIEW_OAUTH_ISSUER = "https://auth.cognitum.one"
 $env:RUVIEW_OAUTH_CLIENT_IDS = "ruview"
 $env:RUVIEW_PUBLIC_BASE_URL = "http://127.0.0.1:3000"
 $env:RUVIEW_UDP_ALLOW = "<ESP32-sender-IP-or-CIDR>"
-docker compose -f backend/docker-compose.runtime.yml up --build
+docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
 `RUVIEW_OAUTH_JWKS_URL` is optional; it defaults to the issuer's
@@ -54,10 +84,15 @@ remain unavailable to those sessions. The static API token retains legacy
 full-authority behavior.
 
 The UI/API are published on loopback at `http://127.0.0.1:3000`; WebSocket is
-on port `3001`, and CSI UDP on port `5005`. Go SDK and modules are downloaded
-only into Docker build/container layers. The default source is `esp32`; without
-a connected sensor the service reports `esp32:offline` instead of synthetic
-measurements.
+on port `3001`, and CSI UDP on port `5005`. Set `CSI_SOURCE=simulate` for a
+labelled synthetic demo or `CSI_SOURCE=esp32` for live CSI. With no sensor in
+ESP32 mode, the service stays online and reports the source as offline. Synthetic
+input is not sensor evidence and must not be used to validate detection quality.
+Go SDK and modules are downloaded only into Docker build/container layers.
+
+The Python reference server is excluded from normal startup. To run it
+explicitly for a legacy comparison, use
+`docker compose -f docker/docker-compose.yml --profile legacy-python up --build python-sensing`.
 
 The migration Compose persists the MediaTek quiet-room activity baseline at
 `/app/data/activity-state.json` inside the mounted data volume by default. You

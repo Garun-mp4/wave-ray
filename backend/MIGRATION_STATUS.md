@@ -28,6 +28,7 @@ for the Rust sensing server and must not be presented as one.
 | RuField signed surface | `/api/field` and `/ws/field` publish RuField v0.1-shaped events with aggregate CSI features and anonymous P2 presence/motion. A persistent per-install Ed25519 key signs the schema-ordered, serde-compatible canonical JSON; signature and privacy projection are checked before publication. Unverified coordinates, identity, numeric vital rates, and raw CSI frames are withheld. A valid signature proves event integrity, not key enrollment or sensing accuracy. | `internal/rufield` tests, canonical serialization fixtures, and HTTP/WebSocket authorization, Origin, privacy, and signature tests |
 | MQTT / Home Assistant | Opt-in Paho MQTT publisher with TLS/system trust, custom CA and mTLS support, username/password environment lookup, reconnect, LWT availability, bounded queues, retained HA discovery, refresh, and state-rate limiting. It publishes coarse presence/motion and RSSI only; no unverified count, localization, pose, identity, vitals, or raw CSI. | `internal/mqttbridge` tests plus Compose Mosquitto discovery/state integration test |
 | Compatibility responses | Legacy API paths are registered; endpoints whose adapters are still missing report unavailable/abstained states instead of fabricated results. RuField REST and WebSocket routes return signed events and retain bearer/ticket and Origin checks. | `internal/httpapi` tests; path registration does not establish full method/schema parity |
+| Default Compose runtime | `docker/docker-compose.yml` builds the Go image as `sensing-server`. Python is opt-in under the `legacy-python` profile. The Go image uses `CSI_SOURCE` unless `--source` is explicitly passed. The UDP host port is configurable for the Windows relay without editing Compose. | Compose config/build/runtime smoke test and `.github/workflows/go-backend.yml` |
 
 ## Not yet migrated
 
@@ -38,42 +39,35 @@ for the Rust sensing server and must not be presented as one.
 | Pose/model training | The Go job API currently supports supervised activity classification only. Contrastive pretraining, pose-model training, base-model fine-tuning, and LoRA training return explicit `501` responses; there is no Go pose-training job or pose artifact export. The shipped pose weights use a separate experimental inference path and do not provide validated person localization. | Define and port a specific pose architecture, labelled dataset contract, cancellation-safe training lifecycle, and leakage-resistant evaluation before exposing pose training. Never treat activity labels or file-level holdout accuracy as pose evidence. |
 | Calibrated localization and trust inference | The Go calibration lifecycle and safe aggregate baseline persistence are available, but the baseline is not yet connected to the Rust eigenvalue/holdout scorer. It cannot authorize occupancy evidence, metric localization, pose, heart rate, or breathing rate. Bootstrap promotion/refinement and calibrated multi-person localization remain unavailable. The dedup factor only affects the per-node count-sum fallback; spatial CSI fusion is an uncalibrated signal product, not a person estimate. | Port and validate the held-out field scorer and bootstrap validation/refinement, then integrate only its calibrated evidence into room-count inference. Keep public trust fail-closed until leakage-free held-out evidence passes. |
 | Live vendor integrations | Mist has a documented API poller. NETGEAR, Origin AI, and Plume/OpenSync require partner-specific, configured northbound endpoints; no partner-account fixtures are available. Other decoded vendors (including Electric Imp, RF Solutions, Luma/OpenWrt, and Google Nest) remain ingest-only. | Validate configured partner contracts and response schemas against provider accounts before claiming live deployment support. |
+| Full Rust REST/WebSocket parity | Go has representative route, authorization, event, and reconnect tests, plus additional Go-only endpoints. A route-path comparison does not prove that every Rust method, response schema, event order, slow-client policy, or UI call behaves identically. | Build and maintain a route/method contract matrix from the Rust server and current UI; add golden response and stream lifecycle tests for each supported contract. Keep unsupported capabilities explicitly unavailable until implemented. |
 | ESP32 mesh/WASM | ADR-110 sync snapshots/metrics, frame-flag-gated sequence timestamp recovery, synchronized multistatic amplitude fusion, node-ID-keyed geometry, and fusion status APIs are migrated. WASM event decoding, latest snapshot, and WebSocket event broadcast are migrated. The fuser withholds cross-node phase for independent clocks and does not output person locations. | Validate timestamp and spatial behavior on real hardware and leakage-free labeled room data; port/reselect the calibrated scorer before deriving person counts, locations, or pose. |
 | Other integrations | Signed, anonymous P2 RuField REST/WebSocket output, privacy-limited MQTT/Home Assistant publishing, non-loopback mDNS DNS-SD discovery, and opt-in OTLP/gRPC log export are available. mDNS is disabled by default in Compose because bridge networking does not forward LAN multicast. Separate Homecore and Matter products remain outside this sensing-server migration. | Validate mDNS on a native LAN deployment and OTLP against the target collector; neither feature is a sensing or localization capability. |
-| Runtime cutover | A Go multi-stage image and an isolated migration Compose runtime now build and pass an HTTP/UI health smoke test. The repository's main Compose still builds the Rust runtime (and separate Python alternative); Go is not the default. | Complete feature/API parity and acceptance, then switch the sensing service in the main Compose and CI without removing companion products. |
+| Hardware and release acceptance | The repository's main Compose now runs Go by default and keeps Python behind the explicit `legacy-python` profile. Rust source and its separate Docker image remain available to other workspace consumers and for controlled comparison; they are not the default sensing Compose service. | Capture and replay real ESP32 CSI, verify UDP source behaviour on the target OS, and complete capability/API acceptance before removing the Rust sensing implementation or publishing a Go release. |
 
-## Validation to date
+## Validation
 
-The latest `docker compose -f backend/docker-compose.test.yml run --rm go-backend-tests`
-run formatted the Go tree and passed `go test -mod=readonly ./...` inside the
-pinned Go container. The RVF/training slice also passed
-`go test -mod=readonly -race ./...`,
-`go vet -mod=readonly ./...`, and `go mod verify` in Docker. The production image
-build and an isolated loopback runtime smoke check passed; no physical ESP32 or
-pose-quality validation was performed. OAuth tests include a regression check
-that browser sessions cannot outlive their verified access token. All CSI, vitals, sync, WASM,
-vendor CSI, radar, and scalar vendor parser fuzz targets passed bounded runs; the
-server binary built in the test container. The latest production image built
-through Compose; its smoke container returned healthy `/health/live`, accurate
-authorized `/api/v1/info`, an empty adaptive-model status, an empty radar
-snapshot, and HTTP 401 for an unauthenticated API request. The latest image was
-rebuilt after the OAuth session-expiry fix and smoke-checked: `/health/live` was
-healthy, `/api/v1/info` returned 401 without a token and Go capability metadata
-with the static token, and `/oauth/status` reported OAuth disabled. The smoke
-container was stopped after validation. No Go SDK or Go dependencies were
-installed on the Windows host.
-Packet/parser and vendor API tests use synthetic fixtures only. These results
-are not evidence from an ESP32, a vendor cloud account, or a Rust-vs-Go
-differential CSI replay. Adaptive classifier accuracy is in-sample only and
-does not establish held-out detection accuracy. Full API/WS schema parity,
-Docker production cutover, and browser runtime checks remain separate
-validation gates.
+On 2026-10-10, `docker compose -f backend/docker-compose.test.yml run --rm
+go-backend-tests` passed all Go package tests and `go vet` in the pinned Go
+container. A second container run passed `go test -race -mod=readonly ./...`,
+`go vet -mod=readonly ./...`, `go mod verify`, and a trimmed server build.
+Default Compose, the optional `legacy-python` profile, and the runtime Compose
+with the Windows relay host-port override all passed configuration validation.
 
-Pose/localization verification on 2026-10-10 passed `go test -mod=readonly ./...`,
-`go test -mod=readonly -race ./...`, `go vet -mod=readonly ./...`, and `go mod
-verify` in the Docker Go container. The runtime image built with the real
-repository pose artifact. An isolated, network-disabled smoke container loaded
-that artifact, consumed synthetic CSI, returned normalized-image keypoints, and
-reported zero person detections plus unavailable metric localization. This is
-runtime wiring evidence only; it is not hardware validation or a pose-accuracy
-result. No Go toolchain or Go module dependencies were installed on the host.
+The production image built and ran from the repository's default Compose file
+with synthetic input. `/health/live` and the UI returned HTTP 200 (the root
+route redirects to the UI), `/api/v1/info` returned 401 without a token and 200
+with a token, and the authorized response reported `backend=go`,
+`source=simulate`, `person_localization=false`, and `calibrated_vitals=false`.
+The smoke service was stopped after the check. These checks validate build,
+startup, static UI wiring, source selection, and API authentication; they do
+not validate ESP32 UDP reception, sensing quality, or localization accuracy.
+
+A second no-hardware run used `CSI_SOURCE=esp32`: the image stayed healthy,
+reported `source=esp32:offline`, exposed UDP ingress counters, and returned
+`no data yet`. This verifies the ESP32-mode startup path only; it is not proof
+that a physical node can reach the container.
+
+Parser, provider, and model tests use synthetic/local fixtures. No Go SDK or
+Go module dependencies were installed on the Windows host; both remained in
+Docker. Live vendor-account checks, physical-hardware acceptance, real-data
+pose evaluation, and exhaustive Rust/API/WebSocket contract parity remain open.

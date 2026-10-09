@@ -120,17 +120,21 @@ ssh thyhack@100.90.238.87
 
 **Fix:** Run the bundled UDP relay on the host so every forwarded datagram arrives from the same loopback source IP, which Docker passes through unchanged.
 
+Keep the API token configured. `RUVIEW_UDP_ALLOW` must include the source
+address the Go container actually sees after Docker forwarding; with the relay
+that may be the host or Docker gateway address rather than an ESP32 address.
+Check the authenticated `GET /api/v1/metrics` response: increasing
+`udp_ingress.denied` means the allowlist is rejecting packets.
+
 ```powershell
 # 1. Start the relay (PowerShell or any terminal)
 python scripts/udp-relay.py --listen-port 5005 --forward-port 5006
 
-# 2. Edit docker/docker-compose.yml — change the ESP32 UDP mapping from
-#       - "5005:5005/udp"
-#    to
-#       - "5006:5005/udp"
+# 2. In PowerShell, set the Go Compose host port used by the relay
+$env:RUVIEW_UDP_HOST_PORT = "5006"
 
 # 3. Bring the stack up
-docker compose -f docker/docker-compose.yml up
+docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
 ESP32 nodes still target the host on `--target-ip <host>:5005` — no firmware re-provisioning is needed. The relay is `scripts/udp-relay.py` (stdlib only, no extra deps). Verify with `--verbose` that each node's source IP appears at least once before forwarding stabilises on a single ephemeral relay port.

@@ -26,7 +26,7 @@ services:
     command:
       - sh
       - -c
-      - go mod tidy && go test -mod=readonly ./... && go vet -mod=readonly ./...
+      - go test -mod=readonly ./... && go vet -mod=readonly ./...
 
 volumes:
   go-module-cache:

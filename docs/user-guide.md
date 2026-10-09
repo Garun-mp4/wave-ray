@@ -93,24 +93,29 @@ No hardware? The system runs in **simulated mode** with synthetic CSI data.
 
 ### Docker (Recommended)
 
-The fastest path. No toolchain installation needed.
+For the Go backend in this checkout, use the source-based Compose command in
+[Quick Start](#quick-start). It builds the Go server inside Docker; no host Go
+toolchain is needed. The currently published `ruvnet/wifi-densepose:latest`
+image is still the separate Rust image until a Go release is published.
 
 ```bash
 docker pull ruvnet/wifi-densepose:latest
 ```
 
-Multi-architecture image (amd64 + arm64). Works on Intel/AMD and Apple Silicon Macs. Contains the Rust sensing server, Three.js UI, and all signal processing.
+The published image supports amd64 and arm64 and contains the legacy Rust
+sensing server. The commands below describe that image only; they do not select
+the Go backend.
 
 **Data source selection:** Use the `CSI_SOURCE` environment variable to select the sensing mode:
 
 | Value | Description |
 |-------|-------------|
-| `auto` | (default) Probe for ESP32 on UDP 5005, fall back to simulation |
+| `auto` | Prefer live ESP32 input; any synthetic fallback is labelled as simulated |
 | `esp32` | Receive real CSI frames from ESP32 devices over UDP |
-| `simulated` | Generate synthetic CSI frames (no hardware required) |
-| `wifi` | Host Wi-Fi RSSI (not available inside containers) |
+| `simulate` (`simulated` alias) | Generate explicitly synthetic CSI frames (no hardware required) |
+| `wifi` | Host Wi-Fi RSSI only; not CSI and unavailable in Linux containers |
 
-Example: `docker run -e RUVIEW_API_TOKEN -e CSI_SOURCE=esp32 -e RUVIEW_UDP_ALLOW=<node-ip-or-cidr> -p 127.0.0.1:3000:3000 -p 5005:5005/udp ruvnet/wifi-densepose:latest`. The container exits with code 64 unless `RUVIEW_API_TOKEN` is set, and receives no ESP32 frames until a UDP source guard is set; see [Receiving ESP32 frames in Docker](#receiving-esp32-frames-in-docker).
+Example for the published Rust image: `docker run -e RUVIEW_API_TOKEN -e CSI_SOURCE=esp32 -e RUVIEW_UDP_ALLOW=<node-ip-or-cidr> -p 127.0.0.1:3000:3000 -p 5005:5005/udp ruvnet/wifi-densepose:latest`. For the Go server, use the Compose command below.
 
 ### From Source (Rust)
 
@@ -262,19 +267,21 @@ Non-interactive:
 ### 30-Second Demo (Docker)
 
 ```bash
-# Pull and run (the container exits with code 64 without an API token)
-export RUVIEW_API_TOKEN=$(openssl rand -hex 32)
-docker run -p 127.0.0.1:3000:3000 -p 127.0.0.1:3001:3001 -e RUVIEW_API_TOKEN ruvnet/wifi-densepose:latest
+# Start Go with explicitly synthetic input; no sensor is required
+export RUVIEW_API_TOKEN="$(openssl rand -hex 32)"
+export RUVIEW_UDP_ALLOW=127.0.0.1
+export RUVIEW_UDP_PUBLISH_ADDR=127.0.0.1
+export CSI_SOURCE=simulate
+docker compose -f docker/docker-compose.yml up --build sensing-server
 
 # Open the UI in your browser
 # http://localhost:3000
 ```
 
-You will see a Three.js visualization with:
-- 3D body skeleton (17 COCO keypoints)
-- Signal amplitude heatmap
-- Phase plot
-- Vital signs panel (breathing + heartbeat)
+This builds and starts the Go HTTP, WebSocket, and static UI runtime. The input
+is synthetic, so this demo proves only startup and API/UI wiring; it does not
+demonstrate person detection, localization, pose, or vital-sign accuracy. Set
+`CSI_SOURCE=esp32` and the ESP32 sender allowlist when hardware is connected.
 
 ### Verify the System Works
 
@@ -312,20 +319,25 @@ stops the server at startup with an error that lists them.
 
 ### Simulated Mode (No Hardware)
 
-Default in Docker. Generates synthetic CSI data exercising the full pipeline.
+The Go Compose service defaults to `CSI_SOURCE=esp32`. Set
+`CSI_SOURCE=simulate` explicitly to generate labelled synthetic CSI; this is
+useful for checking startup and API/UI wiring, but it does not demonstrate
+person detection, localization, pose, or vital-sign accuracy. Use the secure
+environment setup in [Quick Start](#quick-start).
 
 ```bash
-# Docker
-docker run -p 3000:3000 ruvnet/wifi-densepose:latest
-# (--source auto is the default; falls back to simulate when no hardware detected)
+# Go backend, from the repository root, after setting the Quick Start variables
+docker compose -f docker/docker-compose.yml up --build sensing-server
 
-# From source
+# Legacy Rust source example
 ./target/release/sensing-server --source simulate --http-port 3000 --ws-port 3001
 ```
 
 ### Windows WiFi (RSSI Only)
 
-Uses `netsh wlan` to capture RSSI from nearby access points. No special hardware needed. Supports presence detection, motion classification, and coarse breathing rate estimation. No pose estimation (requires CSI).
+The Go backend has a Windows-native RSSI adapter, but it is not available inside
+the Linux Docker container. RSSI is not CSI and does not provide accepted person
+localization, pose, heart-rate, or breathing-rate results.
 
 ```bash
 # From source (Windows only)
@@ -337,7 +349,8 @@ docker run --network host ruvnet/wifi-densepose:latest --source wifi --tick-ms 5
 
 > **Community verified:** Tested on Windows 10 (10.0.26200) with Intel Wi-Fi 6 AX201 160MHz, Python 3.14, StormFiber 5 GHz network. All 7 tutorial steps passed with stable RSSI readings at -48 dBm. See [Tutorial #36](https://github.com/ruvnet/RuView/issues/36) for the full walkthrough and test results.
 
-**Vital signs from RSSI:** The sensing server now supports breathing rate estimation from RSSI variance patterns (requires stationary subject near AP) and motion classification with confidence scoring. RSSI-based vital sign detection has lower fidelity than ESP32 CSI — it is best for presence detection and coarse motion classification.
+Older Rust release documentation describes experimental RSSI breathing
+heuristics. They are not a capability claim for the current Go backend.
 
 ### macOS WiFi (RSSI Only)
 
@@ -360,47 +373,46 @@ on Linux runs the Windows `netsh` scanner, which is not present there, and
 `--source linux` is rejected at startup. Use an ESP32 node (`--source esp32`)
 on Linux.
 
-### ESP32-S3 (Full CSI)
+### ESP32-S3 (CSI input)
 
-Real Channel State Information at 20 Hz with 56-192 subcarriers. Required for pose estimation, vital signs, and through-wall sensing.
+An ESP32-S3 can send raw CSI frames to the Go sensing server over UDP. Receiving
+CSI is not, by itself, validated person localization, pose, heart-rate, or
+breathing-rate detection. Those outputs remain unavailable or experimental in
+the current Go backend until the calibrated inference path is completed and
+validated against real captures.
 
-```bash
-# From source
-./target/release/sensing-server --source esp32 --udp-port 5005 --http-port 3000 --ws-port 3001
+From the repository root, use the default Go Compose service and set
+`RUVIEW_UDP_ALLOW` to the ESP32 sender address or a narrow CIDR. The service
+publishes host UDP port 5005 by default; the device must send to the computer's
+LAN address on that port. See [Hardware Setup](#esp32-s3-mesh) for firmware
+flashing instructions.
 
-# Docker (use CSI_SOURCE environment variable)
-docker run -p 127.0.0.1:3000:3000 -p 127.0.0.1:3001:3001 -p 5005:5005/udp \
-  -e RUVIEW_API_TOKEN -e CSI_SOURCE=esp32 -e RUVIEW_UDP_ALLOW=<node-ip-or-cidr> \
-  ruvnet/wifi-densepose:latest
-```
+The published `ruvnet/wifi-densepose:latest` image referenced in older
+`docker run` examples is a legacy Rust release image. It is not the Go image
+built by the repository's default Compose configuration. Its startup details
+below describe that older image only.
 
-The ESP32 nodes stream binary CSI frames over UDP to port 5005. See [Hardware Setup](#esp32-s3-mesh) for flashing instructions.
+#### Receiving ESP32 frames in the current Go Compose service
 
-#### Receiving ESP32 frames in Docker
+The Go Compose service binds UDP inside the container and requires
+`RUVIEW_UDP_ALLOW` so accepted frames are limited to configured sender IPs or
+CIDRs. The HTTP/UI host ports are loopback-only by default and require an API
+token because the process listens on the container network. Set
+`CSI_SOURCE=esp32` for hardware or `CSI_SOURCE=simulate` for synthetic input.
+The synthetic mode checks server wiring only; it does not demonstrate sensing.
 
-The sensing server binds its UDP receiver to `127.0.0.1` by default (ADR-296). Inside a container that address cannot receive anything from a published `5005/udp` port, so no node ever appears. The image's entrypoint binds UDP on `0.0.0.0` only when you set a source guard, and prints a note at startup when you have not:
+On Docker Desktop for Windows, UDP source forwarding can obscure or collapse
+multiple sender addresses. The host relay workaround is documented in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md). It keeps devices targeting host port
+5005 and maps the relay's forwarded loopback traffic from host port 5006 to
+container port 5005 with `RUVIEW_UDP_HOST_PORT=5006`.
 
-| Variable | Effect |
-|----------|--------|
-| `RUVIEW_API_TOKEN` | Required. Without it (or `RUVIEW_ALLOW_UNAUTHENTICATED=1`) the container exits with code 64. |
-| `RUVIEW_UDP_ALLOW=<ip-or-cidr>` | Accept frames only from these sources. Preferred. |
-| `RUVIEW_UDP_INSECURE_LAN=true` | Accept frames from any source. The UDP data plane is not authenticated, so only use this on a trusted network. |
-| `RUVIEW_UDP_BIND` | Explicit UDP bind address. Overrides the entrypoint's choice. |
-| `SENSING_ALLOWED_HOSTS=<host-ip>` | Needed to open the UI from another machine; otherwise the server answers 421. That also requires publishing the TCP ports beyond `127.0.0.1`. |
+#### Legacy published Rust image
 
-**macOS (Docker Desktop, OrbStack):** datagrams reach the container from the Docker bridge gateway, not from the node's LAN address, so an allowlist that names your LAN subnet drops every frame. Allow the gateway instead:
-
-```bash
-export RUVIEW_API_TOKEN=$(openssl rand -hex 32)
-GW=$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')
-docker run --rm -d --name ruview \
-  -p 127.0.0.1:3000:3000 -p 127.0.0.1:3001:3001 -p 5005:5005/udp \
-  -e RUVIEW_API_TOKEN -e CSI_SOURCE=esp32 -e RUVIEW_UDP_ALLOW="$GW/32" \
-  ruvnet/wifi-densepose:latest
-curl -s -H "Authorization: Bearer $RUVIEW_API_TOKEN" localhost:3000/api/v1/nodes
-```
-
-Allowing the gateway admits anything that can reach the published port, so keep `5005/udp` off untrusted networks. Node identity still comes from the frame payload. With Docker Compose the service runs on the project network (`<project>_default`), so inspect that network's gateway rather than `bridge`. Docker Desktop on Windows has a related source-address problem; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+The old image requires an API token for routable HTTP binds and a UDP source
+guard for LAN input. Its behavior may differ from the Go Compose service; use
+the Go Compose setup above when testing the current backend. Do not expose the
+unauthenticated UDP listener to an untrusted network.
 
 ### ESP32 Multistatic Mesh (Advanced)
 
@@ -458,7 +470,11 @@ docker run --rm \
   ruvnet/wifi-densepose:latest
 ```
 
-On macOS Docker the allowlist must name the bridge gateway; see [Receiving ESP32 frames in Docker](#receiving-esp32-frames-in-docker).
+This `docker run` example uses the published legacy Rust image. For the current
+Go Compose service, see [Receiving ESP32 frames in the current Go Compose
+service](#receiving-esp32-frames-in-the-current-go-compose-service). Docker
+Desktop may rewrite UDP source addresses; the supported Windows relay setup is
+in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 Open the UI from the sensing server, not from a local file:
 
@@ -2112,10 +2128,8 @@ Binary size: 990 KB (8MB flash, 52% free) or 773 KB (4MB flash). v0.5.0 adds mmW
 # From source
 ./target/release/sensing-server --source esp32 --udp-port 5005 --http-port 3000 --ws-port 3001
 
-# Docker (see "Receiving ESP32 frames in Docker" for the UDP source guard)
-docker run -p 127.0.0.1:3000:3000 -p 127.0.0.1:3001:3001 -p 5005:5005/udp \
-  -e RUVIEW_API_TOKEN -e CSI_SOURCE=esp32 -e RUVIEW_UDP_ALLOW=<node-ip-or-cidr> \
-  ruvnet/wifi-densepose:latest
+# Current Go backend (from repository root; set required auth/UDP variables)
+docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
 See [ADR-018](../docs/adr/ADR-018-esp32-dev-implementation.md), [ADR-029](../docs/adr/ADR-029-ruvsense-multistatic-sensing-mode.md), and [Tutorial #34](https://github.com/ruvnet/RuView/issues/34).
@@ -2440,20 +2454,23 @@ node scripts/benchmark-ruvllm.js --model models/csi-ruvllm
 
 ## Docker Compose (Multi-Service)
 
-For production deployments with both Rust and Python services:
+The repository's default sensing service is Go. From the repository root:
 
 ```bash
-cd docker
-export RUVIEW_API_TOKEN=$(openssl rand -hex 32)
-export RUVIEW_UDP_ALLOW=<node-ip-or-cidr>   # macOS Docker: <gateway>/32
-docker compose up
+export RUVIEW_API_TOKEN="$(openssl rand -hex 32)"
+export RUVIEW_UDP_ALLOW=<node-ip-or-cidr>   # loopback for simulation; ESP32 sender for hardware
+docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
-This starts:
-- Rust sensing server on ports 3000 (HTTP), 3001 (WS), 5005 (UDP)
-- Python legacy server on ports 8080 (HTTP), 8765 (WS)
+This starts the Go server on HTTP/UI port 3000, WebSocket port 3001, and CSI
+UDP port 5005. Python is excluded from normal startup; to run its reference
+service explicitly, use `--profile legacy-python` and select `python-sensing`.
 
-The sensing server exits with code 64 when `RUVIEW_API_TOKEN` is unset. Without `RUVIEW_UDP_ALLOW` or `RUVIEW_UDP_INSECURE_LAN=true` it starts but receives no ESP32 frames. `docker/docker-compose.yml` passes these variables through from your shell, along with `RUVIEW_UDP_BIND` and `SENSING_ALLOWED_HOSTS`. See [Receiving ESP32 frames in Docker](#receiving-esp32-frames-in-docker).
+Compose requires `RUVIEW_UDP_ALLOW` before publishing the UDP listener, and the
+Go server refuses a routable HTTP bind without API authentication. For a
+simulation-only run, set `RUVIEW_UDP_PUBLISH_ADDR=127.0.0.1`; for hardware,
+configure the permitted sender IP/CIDR. The main Compose uses the same runtime
+configuration as `backend/docker-compose.runtime.yml`.
 
 ---
 
@@ -2888,10 +2905,14 @@ Install PyYAML: `pip install pyyaml`
 ## FAQ
 
 **Q: Do I need special hardware to try this?**
-No. Run `docker run -p 3000:3000 ruvnet/wifi-densepose:latest` and open `http://localhost:3000`. Simulated mode exercises the full pipeline with synthetic data.
+No. Set `CSI_SOURCE=simulate` as described in [Quick Start](#quick-start) and
+run the Go Compose service. That verifies startup and API/UI wiring with
+synthetic input; it does not demonstrate real sensing or localization.
 
 **Q: Can consumer WiFi laptops do pose estimation?**
-No. Consumer WiFi exposes only RSSI (one number per access point), not CSI (56+ complex subcarrier values per frame). RSSI supports coarse presence and motion detection. Full pose estimation requires CSI-capable hardware like an ESP32-S3 ($8) or a research NIC.
+No. The Go backend's Windows Wi-Fi source provides RSSI, not CSI, and does not
+produce accepted person localization or pose. An ESP32-S3 can provide CSI input,
+but the current Go pose/localization path is still experimental and unvalidated.
 
 **Q: How accurate is the pose estimation?**
 The strongest published RuView result is the MM-Fi transformer benchmark (82.69% torso-PCK@20 on
@@ -2902,16 +2923,28 @@ ADR-027's 10-second unlabeled MERIDIAN adaptation is Proposed; the available mea
 reference uses labeled, model-specific samples.
 
 **Q: Does it work through walls?**
-Yes. WiFi signals penetrate non-metallic materials (drywall, wood, concrete up to ~30cm). Metal walls/doors significantly attenuate the signal. With a single AP the effective through-wall range is approximately 5 meters. With a 3-6 node multistatic mesh (ADR-029), attention-weighted cross-viewpoint fusion extends the effective range to ~8 meters through standard residential walls.
+Radio signals can pass through some building materials, but that alone does not
+establish reliable human detection. The Go backend does not currently provide a
+validated through-wall localization capability.
 
 **Q: How many people can it track?**
-Each access point can distinguish ~3-5 people with 56 subcarriers. Multi-AP deployments multiply linearly (e.g., 4 APs cover ~15-20 people). There is no hard software limit; the practical ceiling is signal physics.
+The Go backend does not currently provide validated multi-person tracking.
+Room-level signals and multi-sensor amplitude fusion are not person detections.
 
 **Q: Is this privacy-preserving?**
-The system uses WiFi radio signals, not cameras. No images or video are captured or stored. However, it does track human position, movement, and vital signs, which is personal data subject to applicable privacy regulations.
+The system uses radio signals rather than cameras, but RF-derived presence and
+movement data can still be sensitive. The Go backend withholds unverified
+identity, coordinates, pose, and numeric vital signs; operators should still
+protect access and follow applicable privacy rules.
 
-**Q: What's the Python vs Rust difference?**
-The Rust implementation (v2) is 810x faster than Python (v1) for the full CSI pipeline. The Docker image is 132 MB vs 569 MB. Rust is the primary and recommended runtime. Python v1 remains available for legacy workflows.
+**Q: What's the Python, Rust, and Go difference?**
+The published Docker image and `v2/` production implementation are Rust; the
+Python pipeline is a reference/legacy implementation. The repository's default
+Compose sensing service now builds Go, but that migration is incomplete and is
+not yet a drop-in replacement for every Rust feature. See
+[`backend/MIGRATION_STATUS.md`](../backend/MIGRATION_STATUS.md) for verified
+capabilities and open acceptance work. Earlier Rust-versus-Python benchmark
+numbers do not describe Go performance.
 
 **Q: Can I use an ESP8266 instead of ESP32-S3?**
 No. The ESP8266 does not expose WiFi Channel State Information (CSI) through its SDK, has insufficient RAM (~80 KB vs 512 KB), and runs a single-core 80 MHz CPU that cannot handle the signal processing pipeline. The ESP32-S3 is the minimum supported CSI capture device. See [Issue #138](https://github.com/ruvnet/RuView/issues/138) for alternatives including using cheap Android TV boxes as aggregation hubs.
