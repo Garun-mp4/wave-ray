@@ -74,7 +74,7 @@ dependencies = [
     # Networking and hardware
     "scapy>=2.5.0",
     "pyserial>=3.5",
-    "paramiko>=3.3.0",
+    "paramiko>=5.0.0",
     
     # Utilities
     "click>=8.1.0",
