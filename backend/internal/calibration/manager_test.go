@@ -50,6 +50,24 @@ func startSingleNode(t *testing.T, manager *Manager, now time.Time, nodeID uint8
 	return Identity{BootEpoch: result["boot_epoch"].(string), SessionID: &sessionID, BindingDigest: &digest, SourceNodeIDs: []int{int(nodeID)}}
 }
 
+func TestMatchesIdentityDoesNotExposeOrConfuseCalibrationSessions(t *testing.T) {
+	manager, now := newTestManager(t)
+	identity := startSingleNode(t, manager, now, 7)
+	if !manager.MatchesIdentity(identity) {
+		t.Fatal("active calibration identity was not recognized")
+	}
+
+	stale := identity
+	wrongDigest := strings.Repeat("b", 64)
+	stale.BindingDigest = &wrongDigest
+	if manager.MatchesIdentity(stale) {
+		t.Fatal("identity with a mismatched room binding was accepted")
+	}
+	if (*Manager)(nil).MatchesIdentity(identity) {
+		t.Fatal("nil calibration manager reported an active identity")
+	}
+}
+
 func TestGridCandidatesRequireStableRawCSI(t *testing.T) {
 	manager, now := newTestManager(t)
 	for i := 0; i < 29; i++ {

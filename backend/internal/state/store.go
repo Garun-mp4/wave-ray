@@ -184,6 +184,7 @@ type Store struct {
 	tick                    atomic.Uint64
 	lastInputAt             atomic.Int64
 	frames                  atomic.Uint64
+	updateRate              updateRateMeter
 	vitals                  atomic.Uint64
 	badCounts               atomic.Uint64
 	syncPackets             atomic.Uint64
@@ -1060,7 +1061,9 @@ func (s *Store) nodeViews(now time.Time) []nodeView {
 func (s *Store) publish() {
 	s.updateMu.Lock()
 	defer s.updateMu.Unlock()
-	s.publishLocked(time.Now())
+	now := time.Now()
+	s.updateRate.Observe(now)
+	s.publishLocked(now)
 }
 
 // Refresh publishes a stale/freshness transition or completes a pending room

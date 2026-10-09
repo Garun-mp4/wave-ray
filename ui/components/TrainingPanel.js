@@ -3,6 +3,12 @@
 
 import { trainingService } from '../services/training.service.js';
 
+export function isTrainingTaskSupported(status, task) {
+  if (status?.enabled === false) return false;
+  if (!Array.isArray(status?.supported_tasks)) return true;
+  return status.supported_tasks.includes(task);
+}
+
 const TP_STYLES = `
 .tp-panel{background:rgba(17,24,39,.9);border:1px solid rgba(56,68,89,.6);border-radius:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0e0e0;overflow:hidden}
 .tp-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(13,17,23,.95);border-bottom:1px solid rgba(56,68,89,.6)}
@@ -284,23 +290,40 @@ export default class TrainingPanel {
     // never a silent no-op. Enablement is surfaced on the status payload.
     const ts = this.state.trainingStatus;
     const disabled = ts && ts.enabled === false;
+    const supportedTasks = Array.isArray(ts?.supported_tasks)
+      ? new Set(ts.supported_tasks)
+      : null;
     const cli = (ts && ts.cli) || 'wifi-densepose train-room';
     if (disabled) {
       const note = this._el('div', 'tp-empty',
         `In-server training is disabled on this build. Train from the CLI:  ${cli}`);
       s.appendChild(note);
+    } else if (supportedTasks) {
+      s.appendChild(this._el('div', 'tp-empty',
+        'Training modes unsupported by this server are disabled.'));
     }
 
     const acts = this._el('div', 'tp-train-actions');
     const btns = [
-      this._btn('Start Training', 'tp-btn tp-btn-success', () => this._launchTraining('startTraining', { patience: this.config.patience, base_model: this.config.base_model || undefined })),
-      this._btn('Pretrain', 'tp-btn tp-btn-secondary', () => this._launchTraining('startPretraining')),
-      this._btn('LoRA', 'tp-btn tp-btn-secondary', () => this._launchTraining('startLoraTraining', { base_model: this.config.base_model || undefined, profile_name: this.config.lora_profile_name || 'default' }))
+      {
+        button: this._btn('Start Training', 'tp-btn tp-btn-success', () => this._launchTraining('startTraining', { patience: this.config.patience, base_model: this.config.base_model || undefined })),
+        task: 'activity_classifier'
+      },
+      {
+        button: this._btn('Pretrain', 'tp-btn tp-btn-secondary', () => this._launchTraining('startPretraining')),
+        task: 'pretrain'
+      },
+      {
+        button: this._btn('LoRA', 'tp-btn tp-btn-secondary', () => this._launchTraining('startLoraTraining', { base_model: this.config.base_model || undefined, profile_name: this.config.lora_profile_name || 'default' })),
+        task: 'lora'
+      }
     ];
-    btns.forEach(b => {
-      b.disabled = this.state.loading || disabled;
-      if (disabled) b.title = `In-server training disabled — use: ${cli}`;
-      acts.appendChild(b);
+    btns.forEach(({ button, task }) => {
+      const taskSupported = isTrainingTaskSupported(ts, task);
+      button.disabled = this.state.loading || disabled || !taskSupported;
+      if (disabled) button.title = `In-server training disabled — use: ${cli}`;
+      else if (!taskSupported) button.title = `This server does not support ${task} training.`;
+      acts.appendChild(button);
     });
     s.appendChild(acts);
     return s;

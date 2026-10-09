@@ -307,7 +307,7 @@ testRunner.test('wsService manages connection state', 'websocketService', () => 
 // Pose Service Tests
 testRunner.test('poseService has required methods', 'poseService', () => {
   testRunner.assert(typeof poseService.getCurrentPose === 'function', 'getCurrentPose method should exist');
-  testRunner.assert(typeof poseService.getZoneOccupancy === 'function', 'getZoneOccupancy method should exist');
+  testRunner.assert(typeof poseService.getZonesSummary === 'function', 'getZonesSummary method should exist');
   testRunner.assert(typeof poseService.startPoseStream === 'function', 'startPoseStream method should exist');
   testRunner.assert(typeof poseService.subscribeToPoseUpdates === 'function', 'subscribeToPoseUpdates method should exist');
 });

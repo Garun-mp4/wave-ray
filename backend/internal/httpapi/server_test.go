@@ -363,8 +363,9 @@ func TestTrainingProgressSocketPublishesCurrentJobState(t *testing.T) {
 	if err := json.Unmarshal(message, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload["type"] != "training_progress" || payload["enabled"] != true || payload["phase"] != "idle" || payload["pose_training_enabled"] != false {
-		t.Fatalf("training progress socket reported incorrect capabilities: %s", message)
+	status, ok := payload["data"].(map[string]any)
+	if payload["type"] != "status" || !ok || status["phase"] != "idle" || status["active"] != false {
+		t.Fatalf("training progress socket must send the Rust {type,data} status envelope: %s", message)
 	}
 }
 
@@ -1279,14 +1280,16 @@ func TestBearerAuthAndSingleUseWebSocketTicket(t *testing.T) {
 		t.Fatal(err)
 	}
 	var ticketBody struct {
-		Ticket string `json:"ticket"`
+		Ticket       string `json:"ticket"`
+		ExpiresInSec int    `json:"expires_in_secs"`
+		Usage        string `json:"usage"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&ticketBody); err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || len(ticketBody.Ticket) != 64 {
-		t.Fatalf("ticket response status=%d ticket length=%d", resp.StatusCode, len(ticketBody.Ticket))
+	if resp.StatusCode != http.StatusOK || len(ticketBody.Ticket) != 64 || ticketBody.ExpiresInSec != 30 || ticketBody.Usage == "" {
+		t.Fatalf("ticket response status=%d ticket length=%d expires=%d usage=%q", resp.StatusCode, len(ticketBody.Ticket), ticketBody.ExpiresInSec, ticketBody.Usage)
 	}
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/sensing?ticket=" + ticketBody.Ticket
@@ -1316,6 +1319,255 @@ func TestBearerAuthAndSingleUseWebSocketTicket(t *testing.T) {
 	}
 	if response == nil || response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("replay response=%v err=%v", response, err)
+	}
+}
+
+func TestStreamStatusMatchesRustSchemaAndCountsOnlyBrowserSockets(t *testing.T) {
+	server, _, hub := testServer(t, "", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/introspection"
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "test complete")
+
+	deadline := time.Now().Add(time.Second)
+	for hub.ClientCount() < 1 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if hub.ClientCount() < 1 {
+		t.Fatal("introspection subscriber was not registered")
+	}
+
+	response, err := http.Get(server.URL + "/api/v1/stream/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d body=%v", response.StatusCode, body)
+	}
+	for _, key := range []string{"active", "clients", "fps", "csi_fps_total", "nodes", "source"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("Rust stream status field %q missing: %v", key, body)
+		}
+	}
+	for _, legacy := range []string{"status", "tick"} {
+		if _, ok := body[legacy]; ok {
+			t.Errorf("non-Rust stream status field %q leaked into response: %v", legacy, body)
+		}
+	}
+	if body["clients"] != float64(0) || hub.BrowserClientCount() != 0 {
+		t.Fatalf("internal introspection socket counted as browser client: status=%v browser=%d", body, hub.BrowserClientCount())
+	}
+}
+
+func TestRemovedGoOnlyRoutesMatchRustNotFoundBehavior(t *testing.T) {
+	server, _, _ := testServer(t, "", false)
+	for _, route := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/api/v1/pose/analyze"},
+		{http.MethodGet, "/api/v1/pose/zones/zone-1/occupancy"},
+		{http.MethodPost, "/api/v1/pose/historical"},
+		{http.MethodPost, "/api/v1/stream/start"},
+		{http.MethodPost, "/api/v1/stream/stop"},
+		{http.MethodGet, "/api/v1/stream/clients"},
+		{http.MethodPost, "/api/v1/stream/broadcast"},
+	} {
+		request, err := http.NewRequest(route.method, server.URL+route.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Errorf("%s %s returned %d, Rust has no matching route and returns 404", route.method, route.path, response.StatusCode)
+		}
+	}
+}
+
+func TestBootstrapErrorResponsesMatchRustPreconditionSchema(t *testing.T) {
+	server, _, _ := testServer(t, "", false)
+	post := func(path, body string) (int, map[string]any) {
+		t.Helper()
+		response, err := http.Post(server.URL+path, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		var payload map[string]any
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode %s response: %v", path, err)
+		}
+		return response.StatusCode, payload
+	}
+
+	status, payload := post("/api/v1/calibration/bootstrap/promote", `{"boot_epoch":"old-boot"}`)
+	if status != http.StatusOK || payload["error_code"] != "calibration_identity_mismatch" || payload["error"] != "The calibration request does not match the active boot, session, room binding, and node set." {
+		t.Fatalf("promote precondition mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/promote", `{}`)
+	if status != http.StatusUnprocessableEntity || payload["code"] != "invalid_calibration_identity" {
+		t.Fatalf("promote malformed identity mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/promote", `{"boot_epoch":"x","source_node_ids":[256]}`)
+	if status != http.StatusUnprocessableEntity || payload["code"] != "invalid_calibration_identity" {
+		t.Fatalf("promote out-of-range node mismatch: status=%d payload=%v", status, payload)
+	}
+
+	status, payload = post("/api/v1/calibration/bootstrap/refine", "{}")
+	if status != http.StatusOK || payload["error_code"] != "empty_confirmation_required" || payload["error"] != "Explicit empty-room confirmation is required for bootstrap refinement." {
+		t.Fatalf("refine confirmation mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/refine?confirmed_empty=true", "{}")
+	if status != http.StatusOK || payload["error_code"] != "bootstrap_not_active" || payload["error"] != "A restored startup baseline must be active before refinement." {
+		t.Fatalf("refine inactive precondition mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/refine?confirmed_empty=maybe", "{}")
+	if status != http.StatusBadRequest || payload["code"] != "invalid_confirmed_empty" {
+		t.Fatalf("refine malformed query mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/refine?confirmed_empty=true&confirmed_empty=false", "{}")
+	if status != http.StatusBadRequest || payload["code"] != "invalid_confirmed_empty" {
+		t.Fatalf("refine duplicate query mismatch: status=%d payload=%v", status, payload)
+	}
+	status, payload = post("/api/v1/calibration/bootstrap/refine?confirmed_empty=true&source_node_id=256", "{}")
+	if status != http.StatusBadRequest || payload["code"] != "invalid_source_node_id" {
+		t.Fatalf("refine out-of-range source mismatch: status=%d payload=%v", status, payload)
+	}
+}
+
+func TestGatedWebSocketsRequireBearerOrSingleUseTicket(t *testing.T) {
+	server, _, _ := testServer(t, "test-secret", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	for _, path := range []string{"/ws/sensing", "/ws/introspection", "/ws/train/progress", "/api/v1/stream/pose"} {
+		url := "ws" + strings.TrimPrefix(server.URL, "http") + path
+		_, response, err := websocket.Dial(ctx, url, nil)
+		if err == nil {
+			t.Errorf("unauthenticated WebSocket %s was accepted", path)
+			continue
+		}
+		if response == nil || response.StatusCode != http.StatusUnauthorized {
+			t.Errorf("unauthenticated WebSocket %s response=%v err=%v", path, response, err)
+		}
+	}
+}
+
+func TestPoseWebSocketMatchesRustEnvelopeAndPreservesEventOrder(t *testing.T) {
+	server, store, hub := testServer(t, "", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/api/v1/stream/pose"
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "test complete")
+
+	readMessage := func() map[string]any {
+		t.Helper()
+		_, data, readErr := conn.Read(ctx)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		var message map[string]any
+		if err := json.Unmarshal(data, &message); err != nil {
+			t.Fatalf("invalid websocket JSON %q: %v", data, err)
+		}
+		return message
+	}
+	connected := readMessage()
+	if connected["type"] != "connection_established" || connected["payload"].(map[string]any)["backend"] != "go" {
+		t.Fatalf("unexpected connection handshake: %v", connected)
+	}
+	deadline := time.Now().Add(time.Second)
+	for hub.BrowserClientCount() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if hub.BrowserClientCount() != 1 {
+		t.Fatalf("pose socket client count=%d", hub.BrowserClientCount())
+	}
+
+	store.IngestVitals(protocol.VitalsPacket{NodeID: 3, Presence: true, PresenceScore: 0.8, Persons: 1, CountValid: true})
+	store.IngestVitals(protocol.VitalsPacket{NodeID: 3, Presence: true, PresenceScore: 0.9, Persons: 1, CountValid: true})
+	first, second := readMessage(), readMessage()
+	if first["type"] != "pose_data" || second["type"] != "pose_data" {
+		t.Fatalf("pose events must use the Rust `pose_data` envelope: first=%v second=%v", first, second)
+	}
+	firstPayload := first["payload"].(map[string]any)
+	pose := firstPayload["pose"].(map[string]any)
+	if _, ok := pose["persons"].([]any); !ok {
+		t.Fatalf("pose_data.payload.pose.persons must be an array: %v", firstPayload)
+	}
+	if firstPayload["pose_source"] != "unavailable" {
+		t.Fatalf("Go must not claim Rust pose inference it does not run: %v", firstPayload["pose_source"])
+	}
+	firstTick := firstPayload["metadata"].(map[string]any)["tick"].(float64)
+	secondPayload := second["payload"].(map[string]any)
+	secondTick := secondPayload["metadata"].(map[string]any)["tick"].(float64)
+	if secondTick <= firstTick {
+		t.Fatalf("pose events lost ordering: first tick=%v second tick=%v", firstTick, secondTick)
+	}
+
+	if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"ping"}`)); err != nil {
+		t.Fatal(err)
+	}
+	pong := readMessage()
+	if pong["type"] != "pong" {
+		t.Fatalf("expected JSON ping/pong compatibility, got %v", pong)
+	}
+	if hub.BrowserClientCount() != 1 {
+		t.Fatalf("pose connection unexpectedly dropped: clients=%d", hub.BrowserClientCount())
+	}
+}
+
+func TestIntrospectionRESTUsesRustSnapshotSchema(t *testing.T) {
+	server, store, _ := testServer(t, "", false)
+	response, err := http.Get(server.URL + "/api/v1/introspection/snapshot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot map[string]any
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		response.Body.Close()
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d snapshot=%v", response.StatusCode, snapshot)
+	}
+	for _, key := range []string{"timestamp_ns", "frame_count", "regime", "lyapunov_exponent", "attractor_dim", "attractor_confidence", "regime_changed", "top_k_similarity"} {
+		if _, ok := snapshot[key]; !ok {
+			t.Errorf("Rust introspection field %q missing: %v", key, snapshot)
+		}
+	}
+	if snapshot["regime"] != "unknown" || snapshot["attractor_confidence"] != float64(0) {
+		t.Fatalf("unported analysis must remain explicitly unknown: %v", snapshot)
+	}
+
+	store.IngestVitals(protocol.VitalsPacket{NodeID: 1, Presence: true, PresenceScore: 0.8})
+	response, err = http.Get(server.URL + "/api/v1/introspection/snapshot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if err := json.NewDecoder(response.Body).Decode(&snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot["frame_count"] != float64(1) {
+		t.Fatalf("snapshot frame_count should advance with sensing events: %v", snapshot)
 	}
 }
 

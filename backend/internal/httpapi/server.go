@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -133,7 +134,7 @@ func (s *Server) Close() {
 }
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /", s.root)
+	mux.HandleFunc("GET /{$}", s.root)
 	mux.Handle("GET /ui/", http.StripPrefix("/ui/", http.FileServer(http.Dir(filepath.Clean(s.Config.UIPath)))))
 	mux.HandleFunc("GET /health", s.healthReady)
 	mux.HandleFunc("GET /health/health", s.healthSystem)
@@ -192,21 +193,12 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/calibration/stop", s.calibrationStop)
 	mux.HandleFunc("POST /api/v1/calibration/cancel", s.calibrationCancel)
 	mux.HandleFunc("POST /api/v1/calibration/reset", s.calibrationReset)
-	mux.HandleFunc("POST /api/v1/calibration/bootstrap/promote", s.capabilityUnavailable)
-	mux.HandleFunc("POST /api/v1/calibration/bootstrap/refine", s.capabilityUnavailable)
+	mux.HandleFunc("POST /api/v1/calibration/bootstrap/promote", s.bootstrapCapabilityUnavailable)
+	mux.HandleFunc("POST /api/v1/calibration/bootstrap/refine", s.bootstrapCapabilityUnavailable)
 	mux.HandleFunc("GET /api/v1/config/dedup-factor", s.dedupConfig)
 	mux.HandleFunc("POST /api/v1/config/dedup-factor", s.setDedupConfig)
 	mux.HandleFunc("POST /api/v1/config/ground-truth", s.setGroundTruth)
-	mux.HandleFunc("POST /api/v1/pose/analyze", s.capabilityUnavailable)
-	mux.HandleFunc("GET /api/v1/pose/zones/{zone_id}/occupancy", s.capabilityUnavailable)
-	mux.HandleFunc("GET /api/v1/pose/historical", s.capabilityUnavailable)
 	mux.HandleFunc("GET /api/v1/stream/status", s.streamStatus)
-	mux.HandleFunc("GET /api/v1/stream/clients", s.streamClients)
-	mux.HandleFunc("POST /api/v1/stream/start", s.streamControlUnavailable)
-	mux.HandleFunc("POST /api/v1/stream/stop", s.streamControlUnavailable)
-	mux.HandleFunc("DELETE /api/v1/stream/clients/{client_id}", s.streamControlUnavailable)
-	mux.HandleFunc("POST /api/v1/stream/broadcast", s.streamControlUnavailable)
-	mux.HandleFunc("GET /api/v1/stream/metrics", s.healthMetrics)
 	mux.HandleFunc("GET /api/v1/train/status", s.trainingStatus)
 	mux.HandleFunc("POST /api/v1/train/start", s.trainingStart)
 	mux.HandleFunc("POST /api/v1/train/stop", s.trainingStop)
@@ -287,7 +279,7 @@ func (s *Server) healthSystem(w http.ResponseWriter, _ *http.Request) {
 			"api":      map[string]any{"status": "healthy", "message": "Go net/http server"},
 			"hardware": map[string]any{"status": hardwareStatus, "message": hardwareMessage},
 			"signal":   map[string]any{"status": signalStatus, "message": "CSI feature pipeline"},
-			"stream":   map[string]any{"status": "healthy", "clients": s.Hub.ClientCount()},
+			"stream":   streamHealthComponent(s.State.StreamMetrics(time.Now()), s.Hub.BrowserClientCount()),
 		},
 		"metrics": map[string]any{"uptime_seconds": uint64(s.State.Uptime().Seconds()), "memory_alloc_bytes": mem.Alloc},
 	})
@@ -302,7 +294,7 @@ func (s *Server) healthMetrics(w http.ResponseWriter, _ *http.Request) {
 	runtime.ReadMemStats(&mem)
 	metrics := map[string]any{
 		"system_metrics": map[string]any{"memory": map[string]any{"alloc_bytes": mem.Alloc, "sys_bytes": mem.Sys}},
-		"tick":           s.State.Health()["tick"], "websocket_clients": s.Hub.ClientCount(),
+		"tick":           s.State.Health()["tick"], "websocket_clients": s.Hub.BrowserClientCount(),
 	}
 	if s.Ingress != nil {
 		metrics["udp_ingress"] = s.Ingress.Counters()
@@ -842,17 +834,8 @@ func (s *Server) poseCalibrate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) introspectionSnapshot(w http.ResponseWriter, _ *http.Request) {
-	update, status, age := s.State.Latest(time.Now())
-	if status != "fresh" {
-		writeJSON(w, http.StatusOK, map[string]any{"status": status, "source": update.Source, "age_ms": age.Milliseconds()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "available", "timestamp": update.Timestamp, "source": update.Source,
-		"tick": update.Tick, "features": update.Features, "classification": update.Classification,
-		"signal_quality_score": update.SignalQualityScore, "node_features": update.NodeFeatures,
-		"algorithmic_attractor": false, "dtw_snapshot": false,
-	})
+	update, _, _ := s.State.Latest(time.Now())
+	writeJSON(w, http.StatusOK, introspectionSnapshot(update))
 }
 
 func (s *Server) wasmEvents(w http.ResponseWriter, _ *http.Request) {
@@ -1263,34 +1246,107 @@ func adaptiveStatusResponse(model *adaptive.Model) map[string]any {
 	}
 }
 
-func (s *Server) capabilityUnavailable(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, map[string]any{
-		"code": "capability_unavailable", "status": "unavailable",
-		"capability": r.URL.Path,
-		"detail":     "This backend capability has not been migrated to Go yet.",
-	})
-}
-
-func (s *Server) streamClients(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) bootstrapCapabilityUnavailable(w http.ResponseWriter, r *http.Request) {
+	code, detail := "bootstrap_not_active", "A restored startup baseline must be active before refinement."
+	if r.URL.Path == "/api/v1/calibration/bootstrap/refine" {
+		query := r.URL.Query()
+		confirmedValues := query["confirmed_empty"]
+		if len(confirmedValues) > 1 {
+			writeError(w, http.StatusBadRequest, "invalid_confirmed_empty", "confirmed_empty must be specified once")
+			return
+		}
+		confirmedValue := ""
+		if len(confirmedValues) == 1 {
+			confirmedValue = confirmedValues[0]
+		}
+		if confirmedValue != "" && confirmedValue != "true" && confirmedValue != "false" {
+			writeError(w, http.StatusBadRequest, "invalid_confirmed_empty", "confirmed_empty must be a boolean")
+			return
+		}
+		if confirmedValue != "true" {
+			code, detail = "empty_confirmation_required", "Explicit empty-room confirmation is required for bootstrap refinement."
+		}
+		sourceValues := query["source_node_id"]
+		if len(sourceValues) > 1 {
+			writeError(w, http.StatusBadRequest, "invalid_source_node_id", "source_node_id must be specified once")
+			return
+		}
+		if len(sourceValues) == 1 && sourceValues[0] != "" {
+			sourceNodeID := sourceValues[0]
+			if _, err := strconv.ParseUint(sourceNodeID, 10, 8); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid_source_node_id", "source_node_id must be an unsigned 8-bit integer")
+				return
+			}
+		}
+	} else {
+		var request struct {
+			BootEpoch     *string  `json:"boot_epoch"`
+			SessionID     *string  `json:"session_id"`
+			BindingDigest *string  `json:"binding_digest"`
+			SourceNodeIDs *[]uint8 `json:"source_node_ids"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&request); err != nil {
+			writeError(w, http.StatusUnprocessableEntity, "invalid_calibration_identity", "request body must contain a valid calibration identity")
+			return
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+			writeError(w, http.StatusUnprocessableEntity, "invalid_calibration_identity", "request body must contain exactly one calibration identity")
+			return
+		}
+		if request.BootEpoch == nil {
+			writeError(w, http.StatusUnprocessableEntity, "invalid_calibration_identity", "boot_epoch is required")
+			return
+		}
+		identity := calibration.Identity{
+			BootEpoch: *request.BootEpoch, SessionID: request.SessionID,
+			BindingDigest: request.BindingDigest,
+		}
+		if request.SourceNodeIDs != nil {
+			identity.SourceNodeIDs = make([]int, len(*request.SourceNodeIDs))
+			for i, nodeID := range *request.SourceNodeIDs {
+				identity.SourceNodeIDs[i] = int(nodeID)
+			}
+		}
+		if s.Calibration == nil {
+			writeCalibrationUnavailable(w, s.calibrationErr)
+			return
+		}
+		if !s.Calibration.MatchesIdentity(identity) {
+			code, detail = "calibration_identity_mismatch", "The calibration request does not match the active boot, session, room binding, and node set."
+		} else if s.Calibration.Status(time.Now())["calibrated"] != true {
+			code, detail = "calibration_not_finalized", "Finalize an explicit room calibration before validating a startup baseline."
+		} else {
+			writeError(w, http.StatusNotImplemented, "bootstrap_unavailable", "startup-baseline promotion is not supported by the Go calibration manager")
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"clients": []any{}, "count": s.Hub.ClientCount(),
-		"client_ids_available": false,
-	})
-}
-
-func (s *Server) streamControlUnavailable(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotImplemented, map[string]any{
-		"code": "stream_control_unavailable", "capability": r.URL.Path,
-		"detail": "Streams are managed by connected clients; explicit stream control has not been migrated.",
+		"success": false, "error_code": code, "error": detail,
 	})
 }
 
 func (s *Server) streamStatus(w http.ResponseWriter, _ *http.Request) {
 	status := s.State.Health()
+	metrics := s.State.StreamMetrics(time.Now())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":  map[bool]string{true: "streaming", false: "waiting"}[s.Hub.ClientCount() > 0],
-		"clients": s.Hub.ClientCount(), "source": status["source"], "tick": status["tick"],
+		"active": metrics.Active, "clients": s.Hub.BrowserClientCount(),
+		"fps": metrics.FPS, "csi_fps_total": metrics.CSIFPSTotal,
+		"nodes": metrics.Nodes, "source": status["source"],
 	})
+}
+
+func streamHealthComponent(metrics state.StreamMetrics, clients int) map[string]any {
+	status := "idle"
+	if clients > 0 && metrics.FPS > 0 {
+		status = "healthy"
+	}
+	return map[string]any{
+		"status": status, "message": fmt.Sprintf("%d client(s), %.1f updates/s", clients, metrics.FPS),
+		"clients": clients, "fps": metrics.FPS,
+	}
 }
 
 func (s *Server) listModels(w http.ResponseWriter, _ *http.Request) {
@@ -1607,7 +1663,10 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, destination any) boo
 
 func (s *Server) issueWSTicket(w http.ResponseWriter, r *http.Request) {
 	if !s.authEnabled() {
-		writeJSON(w, http.StatusOK, map[string]any{"ticket": nil, "authRequired": false})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ticket": nil, "expires_in_secs": 0,
+			"usage": "append as ?ticket=<value> to the WebSocket URL; valid once",
+		})
 		return
 	}
 	identity, ok := identityFromRequest(r)
@@ -1628,10 +1687,15 @@ func (s *Server) issueWSTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	ticket, err := s.Tickets.Issue(grant)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, "ticket_capacity", "could not issue a WebSocket ticket")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, "too many outstanding WebSocket tickets; retry shortly\n")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ticket": ticket, "expires_in": int(security.TicketTTL.Seconds())})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ticket": ticket, "expires_in_secs": int(security.TicketTTL.Seconds()),
+		"usage": "append as ?ticket=<value> to the WebSocket URL; valid once",
+	})
 }
 
 func (s *Server) sensingSocket(w http.ResponseWriter, r *http.Request) {
@@ -1670,12 +1734,35 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 	}
 	conn.SetReadLimit(1 << 20)
 	defer conn.Close(websocket.StatusNormalClosure, "stream closed")
-	readCtx := conn.CloseRead(r.Context())
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	type inboundMessage struct {
+		typeID websocket.MessageType
+		data   []byte
+		err    error
+	}
+	incoming := make(chan inboundMessage, 1)
+	go func() {
+		defer close(incoming)
+		for {
+			typeID, data, readErr := conn.Read(ctx)
+			select {
+			case incoming <- inboundMessage{typeID: typeID, data: data, err: readErr}:
+			case <-ctx.Done():
+				return
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}()
+
 	if topic == "training" {
 		ticker := time.NewTicker(150 * time.Millisecond)
 		defer ticker.Stop()
 		lastPayload := ""
-		publishStatus := func() bool {
+		publishStatus := func(eventType string) bool {
 			status := training.Status{Enabled: false, Phase: "unavailable"}
 			if s.Training != nil {
 				status = s.Training.Status()
@@ -1687,37 +1774,77 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 			if string(encoded) == lastPayload {
 				return true
 			}
-			var payload map[string]any
-			if json.Unmarshal(encoded, &payload) != nil {
-				return false
-			}
-			payload["type"] = "training_progress"
-			if writeJSONFrame(r.Context(), conn, payload) != nil {
+			if writeJSONFrame(ctx, conn, map[string]any{"type": eventType, "data": status}) != nil {
 				return false
 			}
 			lastPayload = string(encoded)
 			return true
 		}
-		if !publishStatus() {
+		if !publishStatus("status") {
 			return
 		}
 		for {
 			select {
-			case <-readCtx.Done():
+			case message, ok := <-incoming:
+				if !ok || message.err != nil {
+					return
+				}
+				if message.typeID == websocket.MessageText && isJSONPing(message.data) {
+					if writeJSONFrame(ctx, conn, map[string]string{"type": "pong"}) != nil {
+						return
+					}
+				}
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if !publishStatus() {
+				if !publishStatus("progress") {
 					return
 				}
 			}
 		}
 	}
-	sub := s.Hub.Subscribe()
+	var sub *stream.Subscription
+	if topic == "sensing" || topic == "pose" {
+		sub = s.Hub.SubscribeClient()
+	} else {
+		sub = s.Hub.Subscribe()
+	}
 	defer sub.Close()
+	if topic == "pose" {
+		if writeJSONFrame(ctx, conn, map[string]any{
+			"type":    "connection_established",
+			"payload": map[string]string{"status": "connected", "backend": "go"},
+		}) != nil {
+			return
+		}
+	}
+	var pingTicker *time.Ticker
+	var pingC <-chan time.Time
+	if topic == "sensing" || topic == "pose" {
+		pingTicker = time.NewTicker(30 * time.Second)
+		pingC = pingTicker.C
+		defer pingTicker.Stop()
+	}
 	for {
 		select {
-		case <-readCtx.Done():
+		case message, ok := <-incoming:
+			if !ok || message.err != nil {
+				return
+			}
+			if message.typeID == websocket.MessageText && isJSONPing(message.data) {
+				if writeJSONFrame(ctx, conn, map[string]string{"type": "pong"}) != nil {
+					return
+				}
+			}
+		case <-ctx.Done():
 			return
+		case <-pingC:
+			pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+			pingErr := conn.Ping(pingCtx)
+			pingCancel()
+			if pingErr != nil {
+				return
+			}
 		case frame, ok := <-sub.C:
 			if !ok {
 				return
@@ -1735,14 +1862,21 @@ func (s *Server) streamSocket(w http.ResponseWriter, r *http.Request, topic stri
 					return
 				}
 			}
-			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-			writeErr := conn.Write(ctx, websocket.MessageText, frame)
-			cancel()
+			writeCtx, writeCancel := context.WithTimeout(ctx, 5*time.Second)
+			writeErr := conn.Write(writeCtx, websocket.MessageText, frame)
+			writeCancel()
 			if writeErr != nil {
 				return
 			}
 		}
 	}
+}
+
+func isJSONPing(data []byte) bool {
+	var message struct {
+		Type string `json:"type"`
+	}
+	return json.Unmarshal(data, &message) == nil && message.Type == "ping"
 }
 
 func (s *Server) authorizeSocket(w http.ResponseWriter, r *http.Request) bool {
@@ -1810,27 +1944,49 @@ func streamProjection(topic string, frame []byte) ([]byte, error) {
 	}
 	switch topic {
 	case "pose":
-		count := any(nil)
-		countSource := "unavailable"
-		if sensing.EstimatedPersons != nil {
-			count = *sensing.EstimatedPersons
-			countSource = "validated_edge_count"
+		confidence := 0.0
+		if sensing.Classification.Presence {
+			confidence = sensing.Classification.Confidence
 		}
 		return json.Marshal(map[string]any{
-			"type": "pose_update", "timestamp": sensing.Timestamp, "source": sensing.Source,
-			"persons": []any{}, "total_persons": count, "count_source": countSource,
-			"pose_available": false, "localization_available": false,
-			"signal_hotspots": fieldHotspots(sensing), "hotspots_are_people": false,
+			"type": "pose_data", "zone_id": "zone_1", "timestamp": sensing.Timestamp,
+			"physics": nil,
+			"payload": map[string]any{
+				"pose":        map[string]any{"persons": []any{}},
+				"confidence":  confidence,
+				"activity":    sensing.Classification.MotionLevel,
+				"pose_source": "unavailable",
+				"metadata": map[string]any{
+					"frame_id": fmt.Sprintf("go_frame_%d", sensing.Tick), "processing_time_ms": 0,
+					"source": sensing.Source, "tick": sensing.Tick,
+					"signal_strength":      sensing.Features.MeanRSSI,
+					"motion_band_power":    sensing.Features.MotionBandPower,
+					"breathing_band_power": sensing.Features.BreathingBandPower,
+					"estimated_persons":    0, "pose_available": false,
+					"localization_available": false,
+				},
+			},
 		})
 	case "introspection":
-		return json.Marshal(map[string]any{
-			"type": "introspection_update", "timestamp": sensing.Timestamp, "source": sensing.Source,
-			"features": sensing.Features, "classification": sensing.Classification,
-			"signal_quality_score":  sensing.SignalQualityScore,
-			"algorithmic_attractor": false, "dtw_snapshot": false,
-		})
+		return json.Marshal(introspectionSnapshot(sensing))
 	default:
 		return nil, errors.New("unknown stream projection")
+	}
+}
+
+// introspectionSnapshot preserves the Rust API's stable wire schema. Go does
+// not currently port the attractor/DTW analyzer, so it reports the honest
+// baseline state (`unknown`, no exponent, zero confidence) rather than
+// synthesizing an analysis result.
+func introspectionSnapshot(sensing state.SensingUpdate) map[string]any {
+	timestampNS := uint64(0)
+	if sensing.Timestamp > 0 && sensing.Timestamp < 1e10 {
+		timestampNS = uint64(math.Round(sensing.Timestamp * 1e9))
+	}
+	return map[string]any{
+		"timestamp_ns": timestampNS, "frame_count": sensing.Tick, "regime": "unknown",
+		"lyapunov_exponent": nil, "attractor_dim": 3, "attractor_confidence": 0.0,
+		"regime_changed": false, "top_k_similarity": []any{},
 	}
 }
 

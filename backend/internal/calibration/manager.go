@@ -530,6 +530,17 @@ func (m *Manager) Stop(identity Identity, now time.Time) (map[string]any, error)
 	}, nil
 }
 
+// MatchesIdentity reports whether identity belongs to the current calibration
+// session without exposing the manager's mutable session state.
+func (m *Manager) MatchesIdentity(identity Identity) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return identityMatches(m.session, identity)
+}
+
 func sReceipt(s *session, model *Model) any {
 	if model != nil {
 		return model.Receipt

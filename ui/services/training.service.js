@@ -3,10 +3,17 @@
 
 import { buildWsUrl } from '../config/api.config.js';
 import { apiService } from './api.service.js';
+import { probeWsAuthRequired, resolveWsUrl } from './ws-ticket.js';
 
 export class TrainingService {
   constructor() {
     this.progressSocket = null;
+    this.progressReconnectTimer = null;
+    this.progressKeepaliveTimer = null;
+    this.progressConnectPromise = null;
+    this.progressConnectionEpoch = 0;
+    this.progressReconnectAttempt = 0;
+    this.progressShouldReconnect = false;
     this.listeners = {};
     this.logger = this.createLogger();
   }
@@ -154,50 +161,152 @@ export class TrainingService {
   // --- WebSocket progress stream ---
 
   connectProgressStream() {
-    if (this.progressSocket) {
+    if (this.progressSocket && this.progressSocket.readyState <= WebSocket.OPEN) {
       this.logger.warn('Progress stream already connected');
       return this.progressSocket;
     }
+    if (this.progressConnectPromise) return this.progressConnectPromise;
 
-    const url = buildWsUrl('/ws/train/progress');
-    this.logger.info('Connecting progress stream', { url });
+    this.progressShouldReconnect = true;
+    this.progressReconnectAttempt = 0;
+    const epoch = ++this.progressConnectionEpoch;
+    return this._beginProgressConnection(epoch);
+  }
 
-    const ws = new WebSocket(url);
+  _beginProgressConnection(epoch) {
+    const attempt = this._openProgressSocket(epoch);
+    let trackedAttempt;
+    trackedAttempt = attempt.finally(() => {
+      if (this.progressConnectPromise === trackedAttempt) this.progressConnectPromise = null;
+    });
+    this.progressConnectPromise = trackedAttempt;
+    return trackedAttempt;
+  }
 
+  async _openProgressSocket(epoch) {
+    const baseUrl = buildWsUrl('/ws/train/progress');
+    let url = baseUrl;
+    let authRequired = null;
+    try {
+      ({ url, authRequired } = await resolveWsUrl(baseUrl));
+    } catch (error) {
+      this.logger.warn('Ticket request failed; trying the socket without a ticket', { error: error.message });
+    }
+    if (!this.progressShouldReconnect || epoch !== this.progressConnectionEpoch) return null;
+    if (authRequired) {
+      this.progressShouldReconnect = false;
+      this.emit('progress-auth-required', { reason: authRequired });
+      return null;
+    }
+
+    const ticketed = url !== baseUrl;
+    let opened = false;
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (error) {
+      this.emit('progress-error', { error });
+      this._scheduleProgressReconnect(epoch);
+      return null;
+    }
+    this.progressSocket = ws;
+
+    const isCurrent = () => epoch === this.progressConnectionEpoch && this.progressSocket === ws;
     ws.onopen = () => {
+      if (!isCurrent()) {
+        ws.close(1000, 'superseded');
+        return;
+      }
+      opened = true;
+      this.progressReconnectAttempt = 0;
       this.logger.info('Progress stream connected');
       this.emit('progress-connected', {});
+      if (this.progressKeepaliveTimer) clearInterval(this.progressKeepaliveTimer);
+      this.progressKeepaliveTimer = setInterval(() => {
+        if (isCurrent() && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
     };
 
     ws.onmessage = (event) => {
+      if (!isCurrent()) return;
       try {
-        const data = JSON.parse(event.data);
-        this.emit('progress', data);
-      } catch (err) {
-        this.logger.warn('Failed to parse progress message', { error: err.message });
+        const message = JSON.parse(event.data);
+        if (message?.type === 'pong') return;
+        this.emit('progress-message', message);
+        // Rust and Go both envelope stream messages as {type, data}. Keep the
+        // existing UI event payload as the status/progress data object.
+        this.emit('progress', message?.data && typeof message.data === 'object' ? message.data : message);
+      } catch (error) {
+        this.logger.warn('Failed to parse progress message', { error: error.message });
       }
     };
 
     ws.onerror = (error) => {
+      if (!isCurrent()) return;
       this.logger.error('Progress stream error', { error });
       this.emit('progress-error', { error });
     };
 
-    ws.onclose = () => {
-      this.logger.info('Progress stream disconnected');
+    ws.onclose = (event) => {
+      if (!isCurrent()) return;
+      this.logger.info('Progress stream disconnected', { code: event?.code });
       this.progressSocket = null;
-      this.emit('progress-disconnected', {});
+      if (this.progressKeepaliveTimer) {
+        clearInterval(this.progressKeepaliveTimer);
+        this.progressKeepaliveTimer = null;
+      }
+      this.emit('progress-disconnected', { code: event?.code });
+      if (!this.progressShouldReconnect) return;
+      if (!opened && !ticketed) {
+        void probeWsAuthRequired().then((reason) => {
+          if (!this.progressShouldReconnect || epoch !== this.progressConnectionEpoch) return;
+          if (reason) {
+            this.progressShouldReconnect = false;
+            this.emit('progress-auth-required', { reason });
+            return;
+          }
+          this._scheduleProgressReconnect(epoch);
+        });
+      } else {
+        this._scheduleProgressReconnect(epoch);
+      }
     };
-
-    this.progressSocket = ws;
     return ws;
   }
 
+  _scheduleProgressReconnect(epoch) {
+    if (!this.progressShouldReconnect || epoch !== this.progressConnectionEpoch || this.progressReconnectTimer) return;
+    const delays = [500, 1000, 2000, 5000, 10000, 30000];
+    const delay = delays[Math.min(this.progressReconnectAttempt, delays.length - 1)];
+    this.progressReconnectAttempt = Math.min(this.progressReconnectAttempt + 1, delays.length - 1);
+    this.emit('progress-reconnecting', { attempt: this.progressReconnectAttempt, delay });
+    this.progressReconnectTimer = setTimeout(() => {
+      this.progressReconnectTimer = null;
+      if (!this.progressShouldReconnect || epoch !== this.progressConnectionEpoch) return;
+      this._beginProgressConnection(epoch);
+    }, delay);
+  }
+
   disconnectProgressStream() {
-    if (this.progressSocket) {
-      this.progressSocket.close();
-      this.progressSocket = null;
+    this.progressShouldReconnect = false;
+    this.progressConnectionEpoch++;
+    this.progressConnectPromise = null;
+    if (this.progressReconnectTimer) {
+      clearTimeout(this.progressReconnectTimer);
+      this.progressReconnectTimer = null;
     }
+    if (this.progressKeepaliveTimer) {
+      clearInterval(this.progressKeepaliveTimer);
+      this.progressKeepaliveTimer = null;
+    }
+    if (this.progressSocket) {
+      const socket = this.progressSocket;
+      this.progressSocket = null;
+      socket.close(1000, 'client disconnected');
+    }
+    this.emit('progress-disconnected', { intentional: true });
   }
 
   dispose() {
