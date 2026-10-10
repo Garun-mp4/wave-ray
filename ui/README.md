@@ -1,52 +1,56 @@
 # RuView operations UI
 
-The primary interface is served by the Go backend at `http://localhost:3000/ui/`.
-It is implemented as native HTML, CSS, and ES modules; no frontend package
-installation or build step is required.
+Open `http://localhost:3000/ui/`. The Go backend serves native HTML, CSS and
+JavaScript modules. Running the frontend requires no Node packages or build service.
 
-## Workspace
+## Navigation
 
-- **Overview** shows server health, source provenance, frame freshness, the
-  signal field when present, and backend-reported capabilities.
-- **Space** displays the backend's normalized diagnostic signal grid and frame
-  contributors. It is index space, not a floor plan or person-location view.
-- **Devices** lists node freshness, CSI sequence and rate, and mesh clock data.
-- **Calibration** manages the room-bound CSI baseline, capture lifecycle,
-  ground-truth count divisor, and backend trust state.
-- **Recordings & data** manages server-side frame captures and activity datasets.
-- **Models & training** manages registered artifacts and supported activity
-  classifier jobs.
-- **Integrations** shows provider descriptors and configured poller/MQTT state.
-- **Settings** stores the API token in this browser origin and controls the
-  optional synthetic browser fallback.
-- **Help & capabilities** explains the supported data path and its limits.
+- **Monitor:** source provenance, current signal readings, and setup steps.
+  The normalized signal grid is optional under Signal diagnostics.
+- **Devices:** freshness, CSI sequence/rate, filtering; mesh timing under details.
+- **Calibration:** room binding and baseline capture. CSI/trust evidence and
+  count-factor controls are disclosed separately. Generated input cannot start
+  a room calibration.
+- **Recordings:** server frame captures and labeled activity datasets.
+- **Models:** supported artifact registry and activity training; training
+  parameters are collapsed by default.
+- **Settings:** browser API access, connection details, optional synthetic
+  fallback, and access to server integrations. Help explains setup and limits.
 
-The existing **Observatory** and **Pose Fusion** research pages remain linked
-under Labs. They are separate legacy/research surfaces and do not count as
-validated sensing output.
+The old `#space` route opens Monitor. `observatory.html` and `pose-fusion.html`
+redirect to Monitor; their synthetic scenes and biometric panels are retired.
+Research source files remain in the repository but are not loaded by the workspace.
 
-## Evidence and limitations
+## Design and themes
 
-The UI distinguishes live device frames, stale data, server outages, and
-synthetic frames. Missing fields stay unavailable rather than appearing as
-zero. The current Go API does not provide accepted metric person coordinates,
-validated multi-person pose, or calibrated heart/breathing measurements. The
-Space view therefore renders only the supplied signal diagnostic and frame
-contributors; it does not place people, animals, or objects in a 3D building.
+`workspace/DESIGN.md` adapts the supplied `DESIGN-linear.md` to this product.
+`design-tokens.css` owns both palettes and the local Inter Variable font.
+The header sun/moon button switches themes, persists the choice, and updates
+browser chrome. Before an explicit choice, the operating-system theme is used.
 
-API requests are same-origin only. The browser token is read from the existing
-`ruview-api-token` local-storage key and sent as a bearer header; it is never
-placed in URLs or rendered back into the page. Provider credentials remain in
-the backend environment.
+## Data and access
 
-## Local checks
+Synthetic frames are visibly labeled. Missing values are unavailable, not zero.
+The current API does not provide accepted metric person coordinates, multi-person
+pose or calibrated vital signs. The signal grid has no room geometry or metres.
 
-Run the dependency-free workspace and service-worker tests with Node.js:
+Requests are same-origin. Tokens remain hidden and are sent in bearer headers,
+never URLs. Provider credentials stay in the server environment. HTML is refreshed
+from the network; only the static shell/assets support offline caching, never API data.
+
+## Verification
 
 ```powershell
-node --test ui/workspace/view-model.test.mjs ui/workspace/api.test.mjs ui/workspace/icons.test.mjs ui/sw.test.mjs ui/services/ws-ticket.test.mjs
+node --test ui/**/*.test.mjs
+playwright-cli -s=ruview-check open http://localhost:3000/ui/
+playwright-cli -s=ruview-check run-code --filename=ui/workspace/browser-check.js
+playwright-cli -s=ruview-check run-code --filename=ui/workspace/browser-errors.js
+playwright-cli -s=ruview-check run-code --filename=ui/workspace/browser-contrast.js
 ```
 
-For backend/container startup and hardware configuration, see
-[`backend/README.md`](../backend/README.md) and the
-[User Guide](../docs/user-guide.md).
+The browser check exercises all routes in both themes at 390, 768, 1024 and
+1440 px, persistence, menu/Escape, diagnostic refresh, skip link and legacy URLs.
+It writes screenshots to `.playwright-cli`; these are local review evidence.
+This verifies the interface with the configured source, not ESP32 hardware accuracy.
+
+See [backend setup](../backend/README.md) for Compose and sensor configuration.

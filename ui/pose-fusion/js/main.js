@@ -5,11 +5,11 @@
  */
 
 import { VideoCapture } from './video-capture.js?v=13';
-import { CsiSimulator } from './csi-simulator.js?v=13';
+import { CsiSimulator } from './csi-simulator.js?v=17';
 import { CnnEmbedder } from './cnn-embedder.js?v=13';
 import { FusionEngine } from './fusion-engine.js?v=13';
 import { PoseDecoder } from './pose-decoder.js?v=13';
-import { CanvasRenderer } from './canvas-renderer.js?v=13';
+import { CanvasRenderer } from './canvas-renderer.js?v=18';
 import { withWsTicket } from '../../services/ws-ticket.js';
 
 // === State ===
@@ -172,6 +172,14 @@ function init() {
     statusLabel.textContent = 'LIVE CSI';
     statusDot.classList.remove('offline');
   };
+  csiSimulator.onSyntheticFrame = () => {
+    if (connectWsBtn) {
+      connectWsBtn.textContent = 'Connected · synthetic';
+      connectWsBtn.classList.remove('active');
+    }
+    statusLabel.textContent = 'SYNTHETIC';
+    statusDot.classList.remove('offline');
+  };
   withWsTicket(defaultWsUrl).then(u => csiSimulator.connectLive(u)).then(ok => {
     if (ok) {
       // Socket open, but no verified frame yet — stay honest.
@@ -210,11 +218,17 @@ function updateModeUI() {
   }
 
   // Update mode label in both the overlay and the camera prompt
-  const labelMap = { dual: 'EXPERIMENTAL FUSION', video: 'VIDEO ONLY', csi: 'CSI-ONLY LAB' };
+  const labelMap = { dual: 'Video + CSI', video: 'Video only', csi: 'CSI only' };
   const modeLabel = document.getElementById('mode-label');
   const promptLabel = document.getElementById('prompt-mode-label');
   if (modeLabel) modeLabel.textContent = labelMap[mode] || mode;
   if (promptLabel) promptLabel.textContent = labelMap[mode] || mode;
+  const promptMessage = cameraPrompt.querySelector('p');
+  if (promptMessage) {
+    promptMessage.textContent = mode === 'csi'
+      ? 'CSI-only mode shows synthetic frames until a verified live device source is connected.'
+      : 'Camera access is requested only after you choose Enable camera. Synthetic CSI is not a hardware measurement.';
+  }
 }
 
 function resizeCanvases() {
@@ -326,10 +340,10 @@ function mainLoop(timestamp) {
   const keypoints = poseDecoder.decode(fusedEmb, motionRegion, elapsed, csiState);
 
   // --- Render Skeleton ---
-  const labelMap = { dual: 'EXPERIMENTAL FUSION', video: 'VIDEO ONLY', csi: 'CSI-ONLY LAB' };
+  const labelMap = { dual: 'Video + CSI', video: 'Video only', csi: 'CSI only' };
   renderer.drawSkeleton(skeletonCtx, keypoints, skeletonCanvas.width, skeletonCanvas.height, {
     minConfidence: confidenceThreshold,
-    color: mode === 'csi' ? 'amber' : 'green',
+    color: mode === 'csi' ? 'csi' : 'video',
     label: labelMap[mode]
   });
 
@@ -429,9 +443,8 @@ function updateRssi(dbm) {
   rssiQualityEl.textContent = quality;
 
   // Color the dBm value based on quality
-  if (clamped > -60) rssiValueEl.style.color = 'var(--green-glow)';
-  else if (clamped > -75) rssiValueEl.style.color = 'var(--amber)';
-  else rssiValueEl.style.color = 'var(--red-alert)';
+  if (clamped > -75) rssiValueEl.style.color = 'var(--color-accent-hover)';
+  else rssiValueEl.style.color = 'var(--color-status-warning)';
 
   // Sparkline history
   rssiHistory.push(clamped);
@@ -453,8 +466,8 @@ function drawRssiSparkline() {
 
   // Gradient fill under line
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, 'rgba(0,210,120,0.3)');
-  grad.addColorStop(1, 'rgba(0,210,120,0)');
+  grad.addColorStop(0, 'rgba(94,106,210,0.18)');
+  grad.addColorStop(1, 'rgba(94,106,210,0)');
 
   ctx.beginPath();
   for (let i = 0; i < len; i++) {
@@ -480,23 +493,17 @@ function drawRssiSparkline() {
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = '#00d878';
+  ctx.strokeStyle = '#828fff';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   // Pulsing dot at latest value
   const latestX = lastX;
   const latestY = h - ((rssiHistory[len - 1] + 100) / 70) * h;
-  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
   ctx.beginPath();
-  ctx.arc(latestX, latestY, 2 + pulse, 0, Math.PI * 2);
-  ctx.fillStyle = '#00d878';
+  ctx.arc(latestX, latestY, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#a8b1ff';
   ctx.fill();
-  ctx.beginPath();
-  ctx.arc(latestX, latestY, 4 + pulse * 2, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(0,216,120,${0.3 + pulse * 0.3})`;
-  ctx.lineWidth = 1;
-  ctx.stroke();
 }
 
 // Boot

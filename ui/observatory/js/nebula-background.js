@@ -50,28 +50,20 @@ float fbm(vec3 p, float octaves) {
 void main() {
   vec3 dir = normalize(vWorldPos);
 
-  // Warm dark atmosphere with subtle color variation
+  // Neutral dark atmosphere with restrained luminance variation
   float n1 = fbm(dir * 2.5 + uTime * 0.008, uOctaves);
   float n2 = fbm(dir * 4.0 - uTime * 0.005, max(1.0, uOctaves - 1.0));
 
-  // Foundation palette: deep blue-black with warm undertones
-  vec3 deepBlack  = vec3(0.03, 0.04, 0.06);
-  vec3 warmNavy   = vec3(0.04, 0.05, 0.10);
-  vec3 greenTint  = vec3(0.01, 0.06, 0.04);
+  vec3 deepBlack  = vec3(0.03, 0.035, 0.04);
+  vec3 warmNavy   = vec3(0.055, 0.06, 0.065);
+  vec3 neutralTint = vec3(0.04, 0.045, 0.05);
 
   vec3 bg = mix(deepBlack, warmNavy, n1 * 0.5);
-  bg = mix(bg, greenTint, n2 * 0.15);
+  bg = mix(bg, neutralTint, n2 * 0.15);
 
   // Subtle top-down gradient (lighter ceiling)
   float upFactor = max(0.0, dir.y) * 0.08;
   bg += vec3(0.02, 0.03, 0.05) * upFactor;
-
-  // Very subtle dim stars (distant)
-  vec3 c = floor(dir * 200.0);
-  vec3 h = hash33(c);
-  float star = step(0.998, h.x) * h.y * 0.15;
-  star *= 0.7 + 0.3 * sin(uTime * 1.5 + h.z * 80.0);
-  bg += vec3(0.6, 0.7, 0.8) * star;
 
   gl_FragColor = vec4(bg, 1.0);
 }

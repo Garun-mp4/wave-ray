@@ -1,8 +1,8 @@
 // RuView Service Worker - Offline caching for the dashboard shell
 // Strategy: Network-first for API calls, Cache-first for static assets
 
-// Bumped from v3 after making static asset cache keys respect versioned URLs.
-const CACHE_NAME = 'ruview-v4';
+// Bumped when shared and lab UI styles change so clients leave old offline assets.
+const CACHE_NAME = 'ruview-v21';
 
 // Requests whose response depends on the caller's credentials. These must never
 // be served from the Cache API.
@@ -23,10 +23,13 @@ const SHELL_ASSETS = [
   '/ui/',
   '/ui/index.html',
   '/ui/manifest.json',
-  '/ui/workspace/app.js',
+  '/ui/workspace/app.js?v=11',
   '/ui/workspace/api.js',
   '/ui/workspace/view-model.js',
-  '/ui/workspace/workspace.css',
+  '/ui/workspace/workspace.css?v=11',
+  '/ui/workspace/design-tokens.css?v=7',
+  '/ui/workspace/theme.js?v=2',
+  '/ui/workspace/fonts/InterVariable.woff2',
   '/ui/workspace/icons.svg',
   '/ui/workspace/favicon.svg',
   '/ui/services/api.service.js',
@@ -97,13 +100,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets and the app shell: cache-first with network fallback.
-  if (request.mode === 'navigate' || STATIC_ASSET.test(url.pathname)) {
+  // Fetch HTML on every visit so an installed shell can receive redesigns.
+  if (request.mode === 'navigate') {
+    event.respondWith(navigationFirst(request));
+    return;
+  }
+  // Versioned assets can remain cache-first.
+  if (STATIC_ASSET.test(url.pathname)) {
     event.respondWith(cacheFirst(request));
   }
 
   // Anything else is left alone and goes to the network as normal.
 });
+
+async function navigationFirst(request) {
+  const url = new URL(request.url);
+  const shell = ['/ui/', '/ui/index.html'].includes(url.pathname);
+  if (shell) url.search = '';
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(url.toString(), response.clone());
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(url.toString());
+    if (cached) return cached;
+    return new Response('Offline. Start the RuView server and reload.', { status: 503 });
+  }
+}
 
 async function cacheFirst(request) {
   const url = new URL(request.url);

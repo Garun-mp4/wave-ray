@@ -138,8 +138,22 @@ test('static assets are still served cache-first', () => {
   }
 });
 
-test('a navigation request is still served cache-first', () => {
+test('a navigation request is handled with network refresh', () => {
   assert.equal(route('/ui/', { mode: 'navigate' }), true);
+});
+
+test('navigation replaces stale HTML online and uses the same canonical shell offline', async () => {
+  const sw = loadServiceWorker();
+  const oldShell = { body: 'old shell' };
+  sw.sandbox.caches.match = async () => oldShell;
+  const freshShell = { ok: true, body: 'fresh shell', clone: () => freshShell };
+  sw.sandbox.fetch = async () => freshShell;
+  const online = dispatch('/ui/?signed_in=123', { mode: 'navigate', sw });
+  assert.equal(await online.responded, freshShell);
+  assert.deepEqual(sw.cachePuts, [`${ORIGIN}/ui/`]);
+  sw.sandbox.fetch = async () => { throw Error('offline'); };
+  const offline = dispatch('/ui/?signed_in=456', { mode: 'navigate', sw });
+  assert.equal(await offline.responded, oldShell);
 });
 
 test('a signed-in shell navigation is cached under its canonical URL', async () => {
@@ -238,7 +252,7 @@ test('the cache name is bumped so clients holding the poisoned v1 evict it', () 
   // already ran the old worker hold a signed-out /oauth/status in `ruview-v1`;
   // only a name change removes it for them.
   assert.ok(!/['"]ruview-v1['"]/.test(SW_SOURCE), 'CACHE_NAME must not still be ruview-v1');
-  assert.ok(/CACHE_NAME\s*=\s*['"]ruview-v[2-9]/.test(SW_SOURCE));
+  assert.ok(/CACHE_NAME\s*=\s*['"]ruview-v(?:[2-9]|[1-9]\d+)/.test(SW_SOURCE));
 });
 
 test('the Go operations shell precaches its current UI modules and registers the worker', () => {
@@ -246,8 +260,11 @@ test('the Go operations shell precaches its current UI modules and registers the
     "'/ui/'",
     "'/ui/index.html'",
     "'/ui/manifest.json'",
-    "'/ui/workspace/app.js'",
-    "'/ui/workspace/workspace.css'",
+    "'/ui/workspace/app.js?v=11'",
+    "'/ui/workspace/workspace.css?v=11'",
+    "'/ui/workspace/design-tokens.css?v=7'",
+    "'/ui/workspace/theme.js?v=2'",
+    "'/ui/workspace/fonts/InterVariable.woff2'",
     "'/ui/workspace/icons.svg'",
     "'/ui/services/api.service.js'",
     "'/ui/services/sensing.service.js'",
@@ -258,5 +275,5 @@ test('the Go operations shell precaches its current UI modules and registers the
 
   const appSource = readFileSync(fileURLToPath(new URL('./workspace/app.js', import.meta.url)), 'utf8');
   assert.match(appSource, /navigator\.serviceWorker\.register\(new URL\('\.\.\/sw\.js', import\.meta\.url\)\)/);
-  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v4['"]/);
+  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v21['"]/);
 });

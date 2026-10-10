@@ -8,17 +8,17 @@ import { SKELETON_CONNECTIONS } from './pose-decoder.js';
 export class CanvasRenderer {
   constructor() {
     this.colors = {
-      joint:      '#00d878',
-      jointGlow:  'rgba(0, 216, 120, 0.4)',
-      limb:       '#3eff8a',
-      limbGlow:   'rgba(62, 255, 138, 0.15)',
-      csiJoint:   '#ffb020',
-      csiLimb:    '#ffc850',
-      fused:      '#00e5ff',
+      joint:      '#5e6ad2',
+      jointGlow:  'rgba(94, 106, 210, 0.32)',
+      limb:       '#828fff',
+      limbGlow:   'rgba(130, 143, 255, 0.16)',
+      csiJoint:   '#d0d6e0',
+      csiLimb:    '#8a8f98',
+      fused:      '#a8b1ff',
       confidence: 'rgba(255,255,255,0.3)',
-      videoEmb:   '#00e5ff',
-      csiEmb:     '#ffb020',
-      fusedEmb:   '#00d878',
+      videoEmb:   '#828fff',
+      csiEmb:     '#d0d6e0',
+      fusedEmb:   '#5e6ad2',
     };
   }
 
@@ -32,16 +32,17 @@ export class CanvasRenderer {
    */
   drawSkeleton(ctx, keypoints, width, height, opts = {}) {
     const minConf = opts.minConfidence || 0.3;
-    const color = opts.color || 'green';
-    const jointColor = color === 'amber' ? this.colors.csiJoint : this.colors.joint;
-    const limbColor = color === 'amber' ? this.colors.csiLimb : this.colors.limb;
-    const glowColor = color === 'amber' ? 'rgba(255,176,32,0.4)' : this.colors.jointGlow;
+    const color = opts.color || 'video';
+    const isCsi = color === 'csi';
+    const jointColor = isCsi ? this.colors.csiJoint : this.colors.joint;
+    const limbColor = isCsi ? this.colors.csiLimb : this.colors.limb;
+    const glowColor = isCsi ? 'rgba(208,214,224,0.18)' : this.colors.jointGlow;
 
     // Extended keypoint styling
-    const fingerColor = '#ff6ef0';    // Magenta for finger tips
-    const fingerGlow = 'rgba(255,110,240,0.4)';
-    const fingerLimb = 'rgba(255,110,240,0.5)';
-    const toeColor = '#6ef0ff';       // Cyan for toes
+    const fingerColor = '#a8b1ff';
+    const fingerGlow = 'rgba(168,177,255,0.35)';
+    const fingerLimb = 'rgba(168,177,255,0.42)';
+    const toeColor = '#d0d6e0';
     const neckColor = '#ffffff';       // White for neck
 
     ctx.clearRect(0, 0, width, height);
@@ -146,7 +147,7 @@ export class CanvasRenderer {
     ctx.clearRect(0, 0, canvasW, canvasH);
 
     if (!heatmap || !heatmap.data || heatmap.height < 2) {
-      ctx.fillStyle = '#0a0e18';
+      ctx.fillStyle = '#0f1011';
       ctx.fillRect(0, 0, canvasW, canvasH);
       ctx.font = '11px "JetBrains Mono", monospace';
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
@@ -185,7 +186,7 @@ export class CanvasRenderer {
    * @param {number} h
    */
   drawEmbeddingSpace(ctx, points, w, h) {
-    ctx.fillStyle = '#050810';
+    ctx.fillStyle = '#08090a';
     ctx.fillRect(0, 0, w, h);
 
     // Grid
@@ -289,19 +290,10 @@ export class CanvasRenderer {
   }
 
   _heatmapColor(val) {
-    // Dark blue → cyan → green → yellow → red
-    if (val < 0.25) {
-      const t = val / 0.25;
-      return `rgb(${Math.floor(t * 20)}, ${Math.floor(20 + t * 60)}, ${Math.floor(60 + t * 100)})`;
-    } else if (val < 0.5) {
-      const t = (val - 0.25) / 0.25;
-      return `rgb(${Math.floor(20 + t * 20)}, ${Math.floor(80 + t * 100)}, ${Math.floor(160 - t * 60)})`;
-    } else if (val < 0.75) {
-      const t = (val - 0.5) / 0.25;
-      return `rgb(${Math.floor(40 + t * 180)}, ${Math.floor(180 + t * 75)}, ${Math.floor(100 - t * 80)})`;
-    } else {
-      const t = (val - 0.75) / 0.25;
-      return `rgb(${Math.floor(220 + t * 35)}, ${Math.floor(255 - t * 120)}, ${Math.floor(20 - t * 20)})`;
-    }
+    const amount = Math.min(1, Math.max(0, (val - 0.15) / 0.75));
+    const start = [15, 16, 17];
+    const end = [78, 86, 165];
+    const color = start.map((channel, index) => Math.round(channel + (end[index] - channel) * amount));
+    return `rgb(${color[0]} ${color[1]} ${color[2]})`;
   }
 }

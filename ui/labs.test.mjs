@@ -8,11 +8,12 @@ const poseFusion = readFileSync(fileURLToPath(new URL('./pose-fusion.html', impo
 const observatoryCss = readFileSync(fileURLToPath(new URL('./observatory/css/observatory.css', import.meta.url)), 'utf8');
 const poseFusionCss = readFileSync(fileURLToPath(new URL('./pose-fusion/css/style.css', import.meta.url)), 'utf8');
 
-test('legacy labs disclose experimental outputs and link back to supported operations', () => {
+test('retired lab links return to supported monitoring without starting simulators', () => {
   for (const source of [observatory, poseFusion]) {
-    assert.match(source, /class="research-disclaimer" role="note"/);
+    assert.match(source, /location.replace\('index.html#overview'\)/);
     assert.match(source, /not validated/);
     assert.match(source, /href="index\.html#overview"/);
+    assert.doesNotMatch(source, /type="module"|csi-simulator|three.min|camera-enable/);
   }
 });
 

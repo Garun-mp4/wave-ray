@@ -22,13 +22,13 @@ export const DEFAULTS = {
   bloom: 0.08, bloomRadius: 0.2, bloomThresh: 0.6,
   exposure: 1.3, vignette: 0.25, grain: 0.01, chromatic: 0.0005,
   boneThick: 0.018, jointSize: 0.035, glow: 0.3, trail: 0.35,
-  wireColor: '#00d878', jointColor: '#ff4060', aura: 0.02,
-  field: 0.45, waves: 0.4, ambient: 0.7, reflect: 0.2,
+  wireColor: '#828fff', jointColor: '#a8b1ff', aura: 0.02,
+  field: 0.16, waves: 0.15, ambient: 0.7, reflect: 0.1,
   fov: 50, orbitSpeed: 0.15, grid: true, room: true,
   scenario: 'auto', cycle: 30, dataSource: 'demo', wsUrl: '',
 };
 
-export const SETTINGS_VERSION = '6';
+export const SETTINGS_VERSION = '8';
 
 export const PRESETS = {
   foundation: {},
@@ -42,25 +42,25 @@ export const PRESETS = {
     bloom: 0.3, bloomRadius: 0.2, bloomThresh: 0.5,
     exposure: 1.1, vignette: 0.2, grain: 0, chromatic: 0,
     glow: 0.3, trail: 0.2, aura: 0.02, field: 0.7,
-    waves: 0.3, ambient: 0.6, reflect: 0.1, wireColor: '#40ff90', jointColor: '#4080ff',
+    waves: 0.3, ambient: 0.6, reflect: 0.1, wireColor: '#828fff', jointColor: '#a8b1ff',
   },
   neon: {
     bloom: 2.5, bloomRadius: 0.8, bloomThresh: 0.1,
     exposure: 0.6, vignette: 0.6, grain: 0.02, chromatic: 0.004,
     glow: 2.0, trail: 1.0, aura: 0.15, field: 0.6,
-    waves: 1.0, ambient: 0.15, reflect: 0.7, wireColor: '#00ffaa', jointColor: '#ff00ff',
+    waves: 1.0, ambient: 0.15, reflect: 0.7, wireColor: '#5e6ad2', jointColor: '#a8b1ff',
   },
   tactical: {
     bloom: 0.5, bloomRadius: 0.3, bloomThresh: 0.4,
     exposure: 0.85, vignette: 0.4, grain: 0.04, chromatic: 0.001,
     glow: 0.5, trail: 0.4, aura: 0.03, field: 0.8,
-    waves: 0.4, ambient: 0.3, reflect: 0.15, wireColor: '#30ff60', jointColor: '#ff8800',
+    waves: 0.4, ambient: 0.3, reflect: 0.15, wireColor: '#828fff', jointColor: '#a8b1ff',
   },
   medical: {
     bloom: 0.6, bloomRadius: 0.4, bloomThresh: 0.35,
     exposure: 1.0, vignette: 0.3, grain: 0.01, chromatic: 0.0005,
     glow: 0.6, trail: 0.3, aura: 0.04, field: 0.5,
-    waves: 0.3, ambient: 0.5, reflect: 0.2, wireColor: '#00ccff', jointColor: '#ff3355',
+    waves: 0.3, ambient: 0.5, reflect: 0.2, wireColor: '#5e6ad2', jointColor: '#a8b1ff',
   },
 };
 
@@ -112,27 +112,6 @@ const MODULE_COLORS = {
   APNEA:     'var(--red-heart)',
   MAT:       'var(--blue-signal)',
 };
-
-// Vital-sign color-coding thresholds
-function vitalColor(type, value) {
-  if (value <= 0) return 'var(--text-secondary)';
-  if (type === 'hr') {
-    if (value < 50 || value > 130) return 'var(--red-alert)';
-    if (value < 60 || value > 100) return 'var(--amber)';
-    return 'var(--green-glow)';
-  }
-  if (type === 'br') {
-    if (value < 8 || value > 28) return 'var(--red-alert)';
-    if (value < 12 || value > 20) return 'var(--amber)';
-    return 'var(--green-glow)';
-  }
-  if (type === 'conf') {
-    if (value < 40) return 'var(--red-alert)';
-    if (value < 70) return 'var(--amber)';
-    return 'var(--green-glow)';
-  }
-  return 'var(--text-primary)';
-}
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -359,13 +338,20 @@ export class HudController {
   // Source badge
   // ============================================================
 
-  updateSourceBadge(dataSource, ws) {
+  updateSourceBadge(dataSource, ws, payload = null) {
     const dot = document.querySelector('#data-source-badge .dot');
     const label = document.getElementById('data-source-label');
     if (dataSource === 'ws' && ws?.readyState === WebSocket.OPEN) {
-      dot.className = 'dot dot--live'; label.textContent = 'LIVE';
+      const source = String(payload?.source_state || payload?.source || '').toLowerCase();
+      if (source === 'simulate' || source === 'synthetic' || source.includes('simulat')) {
+        dot.className = 'dot dot--demo'; label.textContent = 'SYNTHETIC';
+      } else if (source === 'live' || source.startsWith('esp32') || source.startsWith('wifi')) {
+        dot.className = 'dot dot--live'; label.textContent = 'LIVE';
+      } else {
+        dot.className = 'dot dot--connected'; label.textContent = 'CONNECTED';
+      }
     } else {
-      dot.className = 'dot dot--demo'; label.textContent = 'DEMO';
+      dot.className = 'dot dot--demo'; label.textContent = 'SYNTHETIC';
     }
   }
 
@@ -407,15 +393,10 @@ export class HudController {
     this._setWidth('br-bar', Math.min(100, this._lerpBr / 30 * 100));
     this._setWidth('conf-bar', this._lerpConf);
 
-    // Color-code vital values
-    this._setColor('hr-value', vitalColor('hr', this._lerpHr));
-    this._setColor('br-value', vitalColor('br', this._lerpBr));
-    this._setColor('conf-value', vitalColor('conf', this._lerpConf));
-
-    // Color-code bar fills to match
-    this._setBarColor('hr-bar', vitalColor('hr', this._lerpHr));
-    this._setBarColor('br-bar', vitalColor('br', this._lerpBr));
-    this._setBarColor('conf-bar', vitalColor('conf', this._lerpConf));
+    // Scenario vitals are illustrative; reserve status colors for real alerts.
+    this._setBarColor('hr-bar', 'var(--color-accent-primary)');
+    this._setBarColor('br-bar', 'var(--color-accent-primary)');
+    this._setBarColor('conf-bar', 'var(--color-accent-primary)');
 
     this._setText('rssi-value', `${Math.round(feat.mean_rssi || 0)} dBm`);
     this._setText('var-value', (feat.variance || 0).toFixed(2));
@@ -430,9 +411,9 @@ export class HudController {
     if (presEl) {
       const ml = cls.motion_level || 'absent';
       presEl.className = 'presence-state';
-      if (ml === 'active') { presEl.classList.add('presence--active'); presLabel.textContent = 'ACTIVE'; }
-      else if (cls.presence) { presEl.classList.add('presence--present'); presLabel.textContent = 'PRESENT'; }
-      else { presEl.classList.add('presence--absent'); presLabel.textContent = 'ABSENT'; }
+      if (ml === 'active') { presEl.classList.add('presence--active'); presLabel.textContent = 'Active'; }
+      else if (cls.presence) { presEl.classList.add('presence--present'); presLabel.textContent = 'Present'; }
+      else { presEl.classList.add('presence--absent'); presLabel.textContent = 'Absent'; }
     }
 
     const fallEl = document.getElementById('fall-alert');
@@ -463,10 +444,9 @@ export class HudController {
     if (this._rssiHistory.length < 2) return;
 
     ctx.beginPath();
-    ctx.strokeStyle = '#2090ff';
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = '#2090ff';
-    ctx.shadowBlur = 4;
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-hover').trim() || '#828fff';
+    ctx.lineWidth = 1.25;
+    ctx.shadowBlur = 0;
     for (let i = 0; i < this._rssiHistory.length; i++) {
       const x = (i / (this._rssiHistory.length - 1)) * w;
       const norm = Math.max(0, Math.min(1, (this._rssiHistory[i] + 80) / 60));
@@ -474,15 +454,6 @@ export class HudController {
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(32,144,255,0.15)');
-    grad.addColorStop(1, 'rgba(32,144,255,0)');
-    ctx.fillStyle = grad;
-    ctx.fill();
   }
 
   // ============================================================
@@ -497,11 +468,6 @@ export class HudController {
   _setWidth(id, pct) {
     const e = document.getElementById(id);
     if (e) e.style.width = `${pct}%`;
-  }
-
-  _setColor(id, color) {
-    const e = document.getElementById(id);
-    if (e) e.style.color = color;
   }
 
   _setBarColor(id, color) {

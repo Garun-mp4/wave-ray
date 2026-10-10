@@ -1,20 +1,19 @@
 import { api } from './api.js';
 import {
-  capabilityState, escapeHtml, formatAge, formatBytes, formatDate,
+  escapeHtml, formatAge, formatBytes, formatDate,
   getSourcePresentation, hasUsableSignalField, normalizeMeshNodes
 } from './view-model.js';
 import { apiService, API_TOKEN_STORAGE_KEY } from '../services/api.service.js';
 import { sensingService, SIM_FALLBACK_STORAGE_KEY } from '../services/sensing.service.js';
 
 const ROUTES = {
-  overview: { title: 'Overview', description: 'Check the server, source, latest signal, and the capabilities this installation actually exposes.' },
-  space: { title: 'Space', description: 'Inspect the backend signal field and available sensor topology. This view has no metric room coordinates or person tracks.' },
+  overview: { title: 'Monitor', description: 'Your signal source, current readings, and next steps.' },
   devices: { title: 'Devices', description: 'Check node freshness, CSI sequence, and mesh clock synchronization reported by the server.' },
   calibration: { title: 'Calibration', description: 'Bind selected node IDs to a room reference, capture a stable CSI grid, and inspect the saved baseline and trust state.' },
-  recordings: { title: 'Recordings & data', description: 'Record incoming server frames and inspect the labeled datasets available to the activity trainer.' },
-  models: { title: 'Models & training', description: 'Manage registered artifacts and train the supported activity classifier from eligible labeled recordings.' },
+  recordings: { title: 'Recordings', description: 'Record incoming server frames and inspect the labeled datasets available to the activity trainer.' },
+  models: { title: 'Models', description: 'Manage registered artifacts and train the supported activity classifier from eligible labeled recordings.' },
   integrations: { title: 'Integrations', description: 'Review provider capabilities and server-side integration status. Credentials stay in the backend environment.' },
-  settings: { title: 'Settings', description: 'Set the API bearer token for this browser and choose whether local synthetic fallback is allowed during a server outage.' },
+  settings: { title: 'Settings', description: 'Manage server access, browser preferences, and integrations.' },
   help: { title: 'Help & capabilities', description: 'A short guide to signal sources, calibration, synthetic data, and what this backend can currently establish.' }
 };
 
@@ -54,7 +53,7 @@ function button(label, action, variant, extra) {
 function pageHeader(route, actions) {
   const meta = ROUTES[route];
   return '<header class="page-header"><div class="page-heading"><h1 class="page-title">' + safe(meta.title) + '</h1><p class="page-description">' +
-    safe(meta.description) + '</p></div><div class="page-actions">' + (actions || '') + '</div></header>';
+    safe(meta.description) + '</p></div>' + (actions ? '<div class="page-actions">' + actions + '</div>' : '') + '</header>';
 }
 
 function card(title, body, options) {
@@ -65,6 +64,15 @@ function card(title, body, options) {
   return '<section class="card ' + (opts.className || '') + '"><header class="card-header"><div class="card-header-copy"><h2 class="card-title">' +
     safe(title) + '</h2>' + subtitle + '</div>' + extra + '</header><div class="' + bodyClass + '">' + body +
     '</div>' + (opts.footer ? '<footer class="card-footer">' + opts.footer + '</footer>' : '') + '</section>';
+}
+
+function disclosure(title, body, extra = '') {
+  return '<details class="advanced-section ' + extra + '"><summary>' + safe(title) + '</summary><div class="advanced-body">' + body + '</div></details>';
+}
+
+function signalLabel(value) {
+  const labels = { absent: 'Quiet signal', present_still: 'Still signal', moving: 'Motion detected' };
+  return labels[value] || String(value || '—').replaceAll('_', ' ');
 }
 
 function badge(label, tone) {
@@ -84,19 +92,14 @@ function emptyState(iconName, title, message, action) {
     '</span><h3>' + safe(title) + '</h3><p>' + safe(message) + '</p>' + (action || '') + '</div>';
 }
 
-function metric(label, value, detail, iconName, liveKey) {
-  const iconHtml = iconName ? '<span class="metric-icon">' + icon(iconName) + '</span>' : '';
-  const liveAttribute = liveKey ? ' ' + liveKey : '';
-  return '<article class="card metric-card"><div class="metric-label">' + iconHtml + safe(label) +
-    '</div><strong class="metric-value"' + liveAttribute + '>' + safe(value) + '</strong><span class="metric-detail">' +
-    safe(detail || '') + '</span></article>';
-}
-
 function currentLatest() {
   return state.latest && typeof state.latest === 'object' ? state.latest : null;
 }
 
 function sourcePresentation() {
+  if ([state.healthError, state.infoError, state.latestError].some(error => error && error.status === 401)) {
+    return { label: 'Authorization required', detail: 'Add a server API token in Settings', tone: 'danger', mode: 'auth' };
+  }
   return getSourcePresentation({
     health: state.health,
     latest: currentLatest(),
@@ -181,7 +184,7 @@ function updateLiveOverviewFields() {
   const values = {
     'data-rssi': features ? displayNumber(features.mean_rssi, 1, ' dBm') : '—',
     'data-variance': features ? displayNumber(features.variance, 2) : '—',
-    'data-motion': latest && latest.classification ? latest.classification.motion_level || '—' : '—',
+    'data-motion': latest && latest.classification ? signalLabel(latest.classification.motion_level) : '—',
     'data-frame-age': age == null ? '—' : formatAge(age),
     'data-source-label': source.label,
     'data-source-detail': source.detail,
@@ -231,17 +234,19 @@ function paintSignalField(canvas, payload) {
   if (!context) return;
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = '#111216';
+  const palette = getComputedStyle(document.documentElement);
+  context.fillStyle = palette.getPropertyValue('--color-bg-marketing').trim();
   context.fillRect(0, 0, width, height);
-  const low = [48, 56, 94];
-  const high = [129, 166, 238];
+  const light = document.documentElement.dataset.theme === 'light';
+  const low = light ? [240, 241, 242] : [25, 26, 27];
+  const high = [94, 106, 210];
   const cellWidth = width / columns;
   const cellHeight = height / rows;
   const gap = Math.max(1, Math.round(pixelRatio));
   for (let row = 0; row < rows; row += 1) {
     for (let column = 0; column < columns; column += 1) {
       const value = Math.max(0, Math.min(1, field.values[row * columns + column]));
-      const mix = 0.12 + value * 0.88;
+      const mix = 0.06 + value * 0.28;
       const red = Math.round(low[0] + (high[0] - low[0]) * mix);
       const green = Math.round(low[1] + (high[1] - low[1]) * mix);
       const blue = Math.round(low[2] + (high[2] - low[2]) * mix);
@@ -271,11 +276,9 @@ function renderShell(route) {
 
 function renderPage() {
   const data = state.page[state.route] || {};
-  const actions = button('Refresh', 'refresh', '', 'aria-label="Refresh ' + safe(ROUTES[state.route].title) + '"');
   let content;
   switch (state.route) {
     case 'overview': content = renderOverview(); break;
-    case 'space': content = renderSpace(); break;
     case 'devices': content = renderDevices(data); break;
     case 'calibration': content = renderCalibration(data); break;
     case 'recordings': content = renderRecordings(data); break;
@@ -285,8 +288,14 @@ function renderPage() {
     case 'help': content = renderHelp(); break;
     default: content = renderOverview();
   }
-  main.innerHTML = pageHeader(state.route, actions) + content;
-  if (state.route === 'overview' || state.route === 'space') updateLiveOverviewFields();
+  if (data.loading && Object.keys(data).length === 1) content = '<div class="loading-view" role="status"><span class="loading-spinner"></span>Loading…</div>';
+  const opened = state.renderedRoute === state.route ? Array.from(main.querySelectorAll('details[open]'), detail => detail.querySelector('summary')?.textContent) : [];
+  main.innerHTML = pageHeader(state.route, state.route === 'integrations' ? '<a class="button" href="#settings">Back to settings</a>' : '') + content;
+  main.querySelectorAll('details').forEach(detail => { detail.open = opened.includes(detail.querySelector('summary')?.textContent); });
+  state.renderedRoute = state.route;
+  main.dataset.sourceMode = sourcePresentation().mode;
+  main.dataset.sourceMode = sourcePresentation().mode;
+  if (state.route === 'overview') updateLiveOverviewFields();
   if (state.route === 'devices') setupDeviceFilter();
 }
 
@@ -294,90 +303,22 @@ function renderOverview() {
   const source = sourcePresentation();
   const latest = currentLatest();
   const feature = latest && latest.features;
-  const nodes = state.health && Number.isFinite(state.health.nodes) ? state.health.nodes : null;
-  const age = currentAge();
-  const sourceTone = source.tone === 'success' ? 'is-success' : source.tone === 'warning' ? 'is-warning' : source.tone === 'danger' ? 'is-danger' : '';
-  const sourceIcon = source.tone === 'success' ? 'is-success' : source.tone === 'warning' ? 'is-warning' : source.tone === 'danger' ? 'is-danger' : '';
-  const connectAction = source.mode === 'auth'
-    ? '<a class="button button-primary" href="#settings">Open settings</a>'
-    : '<a class="button button-primary" href="#devices">Inspect devices</a>';
-
-  const sourceCard = card('Signal source', '<div class="source-overview"><div><div class="source-status-main"><span data-source-icon class="source-status-icon ' +
-    sourceIcon + '">' + icon(source.mode === 'synthetic' ? 'activity' : 'wifi') + '</span><div class="source-status-copy"><h2 data-source-label>' +
-    safe(source.label) + '</h2><p data-source-detail>' + safe(source.detail) + '</p></div></div><div class="action-row">' +
-    connectAction + '<a class="button" href="#space">Open signal view</a></div></div><dl class="source-aside">' +
-    '<div class="source-detail"><dt>Backend source</dt><dd data-backend-source>' + safe(state.health && state.health.source || '—') + '</dd></div>' +
-    '<div class="source-detail"><dt>Last frame</dt><dd data-source-age>' + safe(age == null ? '—' : formatAge(age)) + '</dd></div>' +
-    '<div class="source-detail"><dt>Tracked nodes</dt><dd data-node-count>' + safe(nodes == null ? '—' : String(nodes)) + '</dd></div>' +
-    '<div class="source-detail"><dt>Measurement mode</dt><dd data-measurement-mode>' + safe(latest && latest.input_mode || 'awaiting frame') + '</dd></div></dl></div>', { className: 'col-12' });
-
-  const metricCards = '<div class="layout-grid col-12">' +
-    '<div class="col-3">' + metric('Mean RSSI', feature ? displayNumber(feature.mean_rssi, 1, ' dBm') : '—', feature ? 'From latest frame' : 'No current frame', 'signal', 'data-rssi') + '</div>' +
-    '<div class="col-3">' + metric('Signal variance', feature ? displayNumber(feature.variance, 2) : '—', feature ? 'Signal feature · not a location' : 'No current frame', 'activity', 'data-variance') + '</div>' +
-    '<div class="col-3">' + metric('Motion class', latest && latest.classification ? latest.classification.motion_level || '—' : '—', latest ? 'Signal-derived classification' : 'No current frame', 'radio', 'data-motion') + '</div>' +
-    '<div class="col-3">' + metric('Frames received', state.health && Number.isFinite(state.health.frames_received) ? String(state.health.frames_received) : '—', 'Server lifetime counter', 'database', 'data-frames') + '</div></div>';
-
-  const features = state.info && state.info.features || {};
-  const capRows = [
-    ['Wi-Fi sensing', 'wifi_sensing', 'Signal processing from configured sources'],
-    ['Spatial CSI fusion', 'spatial_csi_fusion', 'Synchronized signal fusion, not human coordinates'],
-    ['Person localization', 'person_localization', 'Metric person locations are not available'],
-    ['Multi-person pose', 'multi_person_pose', 'Validated multi-person pose is not available'],
-    ['Calibrated vital signs', 'calibrated_vitals', 'Heart and breathing rates are not available'],
-    ['Activity training', 'activity_model_training', 'Labelled recording classifier, if enabled']
-  ];
-  const capMarkup = '<div class="capability-list">' + capRows.map(row => {
-    const status = capabilityState(features, row[1]);
-    const label = status === 'available' ? 'Available' : status === 'unavailable' ? 'Unavailable' : 'Unknown';
-    return '<div class="capability-row"><div><span class="capability-name">' + safe(row[0]) +
-      '</span><span class="capability-explainer">' + safe(row[2]) + '</span></div>' +
-      badge(label, status === 'available' ? 'success' : status === 'unavailable' ? 'neutral' : 'warning') + '</div>';
-  }).join('') + '</div><div class="trust-callout"><strong>No accepted person tracks or vitals.</strong> A signal hotspot, motion label, edge count, or confidence value is not a metric person location or a medical measurement.</div>';
-
+  const synthetic = source.mode === 'synthetic';
+  const nodeCount = state.health && Number.isFinite(state.health.nodes) ? state.health.nodes : null;
+  const sourceBlock = '<section class="monitor-source"><div><h2 data-source-label>' + safe(source.label) + '</h2><p data-source-detail>' + safe(source.detail) + '</p></div><a class="button" href="' + (source.mode === 'auth' ? '#settings' : '#devices') + '">' + (source.mode === 'auth' ? 'Configure access' : 'View devices') + '</a></section>';
+  const readings = '<section class="readings"><h2>Latest signal</h2><dl class="reading-list">' +
+    '<div><dt>Motion label</dt><dd data-motion>' + safe(latest && latest.classification ? latest.classification.motion_level || '—' : '—') + '</dd></div>' +
+    '<div><dt>Received signal strength</dt><dd data-rssi>' + safe(feature ? displayNumber(feature.mean_rssi, 1, ' dBm') : '—') + '</dd></div>' +
+    '<div><dt>Signal variance</dt><dd data-variance>' + safe(feature ? displayNumber(feature.variance, 2) : '—') + '</dd></div>' +
+    '<div><dt>Reporting nodes</dt><dd data-node-count>' + safe(nodeCount == null ? '—' : nodeCount) + '</dd></div>' +
+    '<div><dt>Last frame</dt><dd data-source-age>' + safe(currentAge() == null ? '—' : formatAge(currentAge())) + '</dd></div></dl><p class="section-note">' + (synthetic ? 'These readings are generated by the simulator.' : 'Signal features describe the radio channel; they do not locate a person.') + '</p></section>';
+  const steps = '<section class="setup-guide"><h2>' + (synthetic ? 'Connect your sensors' : 'Continue setup') + '</h2><p>' + (synthetic ? 'The interface is running in simulation mode. Use an ESP32 CSI source for measurements.' : 'Check input quality before capturing a room baseline.') + '</p><ol class="setup-steps">' +
+    '<li><a href="#devices"><strong>Check devices</strong><span>Confirm fresh CSI and synchronized nodes</span>' + icon('arrow-up-right') + '</a></li>' +
+    '<li><a href="#calibration"><strong>Calibrate the room</strong><span>Bind sensors and capture a stable baseline</span>' + icon('arrow-up-right') + '</a></li>' +
+    '<li><a href="#recordings"><strong>Record a sample</strong><span>Save labeled data for activity training</span>' + icon('arrow-up-right') + '</a></li></ol><a class="text-link" href="#help">Setup guide and measurement limits</a></section>';
   const fieldExists = hasUsableSignalField(latest);
-  const signalCard = card('Signal field', '<div class="signal-canvas-wrap"><canvas id="signal-field-canvas" class="signal-canvas" aria-label="Normalized signal field diagnostic grid"></canvas><div class="canvas-caption"><i class="legend-swatch"></i>Normalized signal field · diagnostic</div><div id="signal-empty" class="canvas-empty"' +
-    (fieldExists ? ' hidden' : '') + '>' + icon('scan_line') + '<strong>No signal field available</strong><span>When a frame includes a field, this view shows its normalized index grid. It is not a room plan or an object location.</span></div></div>' +
-    '<div class="canvas-footer"><span>Index space · no metric scale</span><span data-frame-age>' + safe(age == null ? 'Awaiting frame' : formatAge(age)) + '</span></div>', { className: 'col-7', subtitle: 'Derived from the latest frame only' });
-
-  const capabilitiesCard = card('What this server can establish', capMarkup, { className: 'col-5' });
-  const steps = '<div class="quick-step-list">' +
-    '<div class="quick-step"><span class="quick-step-number">1</span><div><strong>Connect a source</strong><span>Start the Go server and ESP32 CSI stream.</span></div></div>' +
-    '<div class="quick-step"><span class="quick-step-number">2</span><div><strong>Confirm fresh frames</strong><span>Check node status and mesh sync before calibrating.</span></div></div>' +
-    '<div class="quick-step"><span class="quick-step-number">3</span><div><strong>Bind a room baseline</strong><span>Calibration needs eligible CSI and a stable empty room.</span></div></div>' +
-    '<div class="quick-step"><span class="quick-step-number">4</span><div><strong>Record labelled data</strong><span>Only the activity classifier is supported for training.</span></div></div>' +
-    '</div>';
-  const stepsCard = card('Operator workflow', steps, { className: 'col-12' });
-  return '<div class="layout-grid">' + sourceCard + metricCards + signalCard + capabilitiesCard + stepsCard + '</div>';
-}
-
-function renderSpace() {
-  const latest = currentLatest();
-  const field = hasUsableSignalField(latest);
-  const devices = Array.isArray(latest && latest.nodes) ? latest.nodes : [];
-  const fieldSize = field ? latest.signal_field.grid_size : null;
-  const nodeList = devices.length
-    ? '<div class="scene-node-list">' + devices.map(node => '<div class="scene-node"><span class="scene-node-dot active"></span><span><strong>Node ' +
-      safe(node.node_id) + '</strong><small>Frame contributor · position ' + (node.position_available ? 'configured' : 'not configured') + '</small></span></div>').join('') + '</div>'
-    : emptyState('radio', 'No frame contributors', 'Device markers appear only when the current backend frame reports nodes.', '<a class="button button-small" href="#devices">Open devices</a>');
-  const layers = '<div class="scene-layer-list">' +
-    '<label class="scene-layer"><input type="checkbox" checked disabled><span><strong>Signal field</strong>Normalized backend diagnostic</span></label>' +
-    '<label class="scene-layer"><input type="checkbox" checked disabled><span><strong>Devices</strong>Frame contributors; not a room coordinate map</span></label>' +
-    '<label class="scene-layer unavailable"><input type="checkbox" disabled><span><strong>Person tracks</strong>Unavailable: metric localization is not implemented</span></label>' +
-    '<label class="scene-layer unavailable"><input type="checkbox" disabled><span><strong>Pose and vital signs</strong>Unavailable: no accepted inference path</span></label>' +
-    '</div>';
-  const canvas = '<div class="signal-canvas-wrap"><canvas id="signal-field-canvas" class="signal-canvas" aria-label="Normalized signal field diagnostic grid"></canvas><div class="canvas-caption"><i class="legend-swatch"></i>Normalized signal field</div><div id="signal-empty" class="canvas-empty"' +
-    (field ? ' hidden' : '') + '>' + icon('scan_line') + '<strong>No current signal field</strong><span>Start a source that emits sensing frames. The field is an index-space signal diagnostic; it has no room geometry, floor, or person markers.</span></div></div>';
-  const sceneCard = '<section class="card"><header class="scene-toolbar"><div><div class="scene-toolbar-title">Signal field · uncalibrated diagnostic</div><div class="scene-toolbar-meta">' +
-    (field ? safe(String(fieldSize[0]) + ' × ' + String(fieldSize[2]) + ' samples') : 'Waiting for a field payload') +
-    '</div></div>' + badge(field ? 'Frame available' : 'No frame', field ? 'info' : 'neutral') + '</header><div class="scene-shell">' + canvas +
-    '<div class="canvas-footer"><span>Axes are sample indices, not metres.</span><span data-frame-age>' +
-    safe(currentAge() == null ? 'Awaiting frame' : formatAge(currentAge())) + '</span></div></div></section>';
-  const inspector = '<aside class="scene-inspector">' +
-    card('Scene layers', layers) +
-    card('Frame nodes', nodeList) +
-    '<div class="scene-not-to-scale">This backend does not expose building/floor coordinates or accepted person tracks. The 3D multi-floor scene remains gated on metric coordinates, ground truth, and hardware validation.</div>' +
-    '</aside>';
-  return '<div class="scene-layout"><div>' + sceneCard + '</div>' + inspector + '</div>';
+  const diagnostics = '<details class="diagnostics"><summary>Signal diagnostics<span>Normalized grid · no metric coordinates</span></summary><div class="diagnostics-body"><div class="signal-canvas-wrap"><canvas id="signal-field-canvas" class="signal-canvas" aria-label="Normalized signal diagnostic; not a room map"></canvas><div id="signal-empty" class="canvas-empty"' + (fieldExists ? ' hidden' : '') + '><strong>No signal field available</strong><span>Waiting for a frame containing a diagnostic grid.</span></div></div><p class="section-note">Sample indices, not metres. This grid cannot show people, objects, or floors.</p></div></details>';
+  return (['auth', 'offline', 'unavailable'].includes(source.mode) ? sourceBlock : '') + '<div class="monitor-columns">' + readings + steps + '</div><p class="measurement-limit">Person coordinates, pose, and calibrated heart or breathing rates are not available in this installation.</p>' + diagnostics;
 }
 
 function renderDevices(data) {
@@ -412,13 +353,12 @@ function renderDevices(data) {
         '</td><td class="mono">' + safe(node.staleness_ms == null ? '—' : formatAge(node.staleness_ms)) + '</td></tr>').join('') +
       '</tbody></table></div>'
     : emptyState('radio', 'No mesh synchronization packets', 'Mesh timing appears only after nodes send sync beacons.');
-  const meshCard = card('Mesh synchronization', meshRows, { className: 'col-12', bodyClass: 'card-body-tight', subtitle: 'Clock alignment is not a spatial position estimate.' });
   const error = data.error ? '<div class="col-12">' + banner(data.error, 'warning') + '</div>' : '';
   return '<div class="layout-grid">' + error +
     '<div class="col-12"><div class="device-summary"><span><strong>' + safe(nodes.length) + '</strong> known nodes</span><span><strong>' +
     safe(nodes.filter(node => node.status === 'active').length) + '</strong> recently active</span><span><strong>' +
     safe(nodes.filter(node => node.csi_status === 'active').length) + '</strong> with fresh CSI</span><span><strong>' +
-    safe(mesh.length) + '</strong> mesh snapshots</span></div>' + headerTools + '</div>' + deviceCard + meshCard + '</div>';
+    safe(mesh.length) + '</strong> mesh snapshots</span></div>' + headerTools + '</div>' + deviceCard + disclosure('Mesh synchronization details', meshRows, 'col-12') + '</div>';
 }
 
 function setupDeviceFilter() {
@@ -447,6 +387,7 @@ function renderCalibration(data) {
   const active = Boolean(status && status.active);
   const calibrated = Boolean(status && status.calibrated);
   const canReset = Boolean(status && status.model_id && status.boot_epoch);
+  const synthetic = sourcePresentation().mode === 'synthetic';
   const nodes = state.page.devices && state.page.devices.nodes || [];
 
   const error = data.error ? banner(data.error, 'warning') : '';
@@ -469,12 +410,12 @@ function renderCalibration(data) {
     : emptyState('radio', 'No nodes to bind', 'Start the server source and wait for node telemetry before starting room calibration.');
 
   const startForm = '<form data-form="calibration-start"><div class="form-grid">' +
-    '<div class="form-field full"><label class="form-label" for="cal-room">Room reference</label><input class="text-input" id="cal-room" name="room" maxlength="80" required placeholder="e.g. lab-west / floor-2"><span class="form-hint">The browser creates a SHA-256 binding identity from this label and selected node IDs. The API does not accept room geometry or per-node coordinates.</span></div>' +
+    '<div class="form-field full"><label class="form-label" for="cal-room">Room reference</label><input class="text-input" id="cal-room" name="room" maxlength="80" required placeholder="e.g. lab-west / floor-2"><span class="form-hint">Use a stable name for this room and sensor group. This does not define a floor plan.</span></div>' +
     '<div class="form-field"><label class="form-label" for="cal-source">Grid source node</label><select class="select-input" id="cal-source" name="source_node_id" required>' +
     nodes.map(node => '<option value="' + safe(node.node_id) + '">Node ' + safe(node.node_id) + '</option>').join('') +
     '</select><span class="form-hint">The backend selects an eligible raw CSI grid from live evidence.</span></div>' +
     '<div class="form-field"><span class="form-label">Bound nodes</span>' + nodeChoices + '</div></div>' +
-    '<div class="form-actions"><button class="button button-primary" type="submit" ' + (active || nodes.length === 0 ? 'disabled' : '') + '>Start baseline capture</button></div></form>';
+    '<div class="form-actions"><button class="button button-primary" type="submit" ' + (active || nodes.length === 0 || synthetic ? 'disabled' : '') + '>Start baseline capture</button></div>' + (synthetic ? '<p class="form-hint">Connect a live raw CSI source before starting room calibration.</p>' : '') + '</form>';
 
   const stateLabel = active ? safe(status.status || 'capturing') : calibrated ? 'Saved baseline' : status ? safe(status.status || 'Not calibrated') : 'Unavailable';
   const capture = '<div class="kv-list">' +
@@ -501,11 +442,10 @@ function renderCalibration(data) {
     : emptyState('shield_check', 'Trust unavailable', data.error || 'The calibration manager is unavailable or has not returned a trust record.');
 
   return '<div class="layout-grid">' + (error ? '<div class="col-12">' + error + '</div>' : '') +
-    '<div class="col-7">' + card('Room binding', banner('A saved CSI baseline is an aggregate signal reference. It is not a person-localization model, metric room map, or vital-sign calibration.', 'warning') + '<div class="calibration-spacer"></div>' + startForm, { subtitle: 'Choose the sensor IDs that belong to this room.' }) + '</div>' +
+    '<div class="col-7">' + card('Room binding', startForm, { subtitle: 'Choose the sensor IDs that belong to this room.' }) + '</div>' +
     '<div class="col-5">' + card('Capture status', capture, { subtitle: 'Requires at least 1,000 accepted frames over at least 10 minutes.' }) + '</div>' +
-    '<div class="col-12">' + card('Selected CSI grid evidence', candidateMarkup, { subtitle: 'The server only exposes the grid selected for an active or saved calibration session.' }) + '</div>' +
-    '<div class="col-6">' + card('Ground-truth count', truth, { subtitle: 'Sets the count-fusion deduplication factor.' }) + '</div>' +
-    '<div class="col-6">' + card('Measurement trust', trustMarkup, { subtitle: 'Trust status is shown as reported by the backend.' }) + '</div></div>';
+    disclosure('CSI grid and measurement trust', '<h3>Selected CSI grid</h3>' + candidateMarkup + '<h3>Measurement trust</h3>' + trustMarkup, 'col-12') +
+    disclosure('Advanced: count calibration', '<p class="section-note">Only adjusts the count-fusion factor; does not enable accepted people counting.</p>' + truth, 'col-12') + '</div>';
 }
 
 function renderRecordings(data) {
@@ -593,10 +533,10 @@ function renderModels(data) {
         safe(dataset.id) + '"><span><strong>' + safe(dataset.label) + '</strong><small>' + safe(dataset.id) +
         ' · ' + safe(formatBytes(dataset.size_bytes)) + '</small></span></label></li>').join('') + '</ul>' :
         '<p class="form-hint">No eligible datasets. Add at least two distinct labeled recording files for a class.</p>') +
-      '<div class="form-grid training-config"><div class="form-field"><label class="form-label" for="train-epochs">Epochs</label><input class="text-input" type="number" id="train-epochs" name="epochs" min="1" max="2000" value="100" required></div>' +
+      '<details class="training-options"><summary>Training parameters</summary><div class="form-grid training-config"><div class="form-field"><label class="form-label" for="train-epochs">Epochs</label><input class="text-input" type="number" id="train-epochs" name="epochs" min="1" max="2000" value="100" required></div>' +
       '<div class="form-field"><label class="form-label" for="train-batch">Batch size</label><input class="text-input" type="number" id="train-batch" name="batch_size" min="1" max="4096" value="32" required></div>' +
       '<div class="form-field"><label class="form-label" for="train-rate">Learning rate</label><input class="text-input" type="number" id="train-rate" name="learning_rate" min="0.000001" max="1" step="0.000001" value="0.0003" required></div>' +
-      '<div class="form-field"><label class="form-label" for="train-patience">Early-stop patience</label><input class="text-input" type="number" id="train-patience" name="patience" min="1" max="1000" value="15" required></div></div>' +
+      '<div class="form-field"><label class="form-label" for="train-patience">Early-stop patience</label><input class="text-input" type="number" id="train-patience" name="patience" min="1" max="1000" value="15" required></div></div></details>' +
       '<div class="form-actions"><button class="button button-primary" type="submit" ' + (eligible.length < 2 || training && training.enabled === false ? 'disabled' : '') + '>Start activity training</button></div></fieldset></form>';
 
   return '<div class="layout-grid">' + (data.modelsError || data.trainingError || data.datasetsError
@@ -604,8 +544,7 @@ function renderModels(data) {
     '<div class="col-5">' + card('Active model', activeCard, { subtitle: 'Loading a file does not mean its inference quality is validated.' }) + '</div>' +
     '<div class="col-7">' + card('Model registry', modelList, { subtitle: 'Artifact metadata reported by the Go backend.' }) + '</div>' +
     '<div class="col-12">' + card('Activity-model training', trainState, { subtitle: activeTraining ? 'Progress from the Go training manager.' : 'Create datasets from labeled recordings first.' }) + '</div>' +
-    '<div class="col-12">' + card('Training result interpretation', '<div class="info-banner">' + icon('circle-alert') +
-      '<span>A high score on the held-out recording files is a dataset result, not proof of accuracy on new environments or people. Pose-model training and pose-quality validation are not currently available.</span></div>') + '</div></div>';
+    '</div>';
 }
 
 function renderIntegrations(data) {
@@ -636,7 +575,7 @@ function renderIntegrations(data) {
     : emptyState('plug', 'MQTT status unavailable', data.mqttError || 'No MQTT status was returned.');
   const errors = [data.vendorsError, data.pollError, data.mqttError].filter(Boolean);
   return '<div class="layout-grid">' + (errors.length ? '<div class="col-12 banner-stack">' + errors.map(message => banner(message, 'warning')).join('') + '</div>' : '') +
-    '<div class="col-12">' + card('RF and Wi-Fi providers', vendorCards, { subtitle: 'Catalog availability is not proof of an active provider connection.' }) + '</div>' +
+    disclosure('Supported provider catalog', vendorCards, 'col-12') +
     '<div class="col-6">' + card('Provider polling', pollStatus.length ? '<div class="kv-list">' + pollStatus.map(item =>
       '<div class="kv-row"><dt>' + safe(item.vendor) + '</dt><dd>' + badge(item.enabled ? item.state : 'Not configured', item.enabled ? 'info' : 'neutral') + '</dd></div>').join('') + '</div>' :
       emptyState('plug', 'No provider pollers configured', 'Polling requires server-side provider settings and credentials.') , { subtitle: 'Credentials are never sent to or displayed by this browser.' }) + '</div>' +
@@ -669,14 +608,10 @@ function renderSettings() {
   const demoForm = '<form data-form="simulation-setting"><label class="check-row"><input type="checkbox" name="allow_simulation" ' +
     (simulated ? 'checked' : '') + '><span><strong>Allow browser-generated fallback after repeated server connection failures</strong><small>Generated frames are marked synthetic and are not measurements. This does not replace a reachable server.</small></span></label>' +
     '<div class="form-actions"><button class="button" type="submit">Save demo preference</button></div></form>';
-  const security = '<div class="banner-stack">' +
-    banner('This UI is served by the local Go backend. Keep the server bound to localhost unless you intentionally configure network access and authentication.', 'warning') +
-    banner('Provider credentials and integration settings belong in the server environment; they are not collected by this page.', 'info') +
-    '</div>';
-  return '<div class="layout-grid"><div class="col-6">' + card('Connection', summary, { subtitle: 'Origin and server state for the current browser session.' }) +
-    '</div><div class="col-6">' + card('API access', authForm, { subtitle: 'A missing or invalid token is reported without exposing its value.' }) +
-    '</div><div class="col-6">' + card('Synthetic fallback', demoForm, { subtitle: 'Disabled by default; only used after the server connection retry policy.' }) +
-    '</div><div class="col-6">' + card('Network and privacy', security, { subtitle: 'Use the server’s environment and deployment settings for sensitive configuration.' }) + '</div></div>';
+  return '<div class="settings-content">' + card('API access', authForm, { subtitle: 'Only needed when this server requires a bearer token.' }) +
+    disclosure('Connection details', summary) + disclosure('Advanced: synthetic fallback', demoForm) +
+    '<section class="settings-links"><h2>Server configuration</h2><a class="button" href="#integrations">' + icon('plug') + 'Integrations</a><a class="text-link" href="#help">Setup guide and capabilities</a><p class="section-note">Provider credentials stay on the server. Keep the service bound to localhost unless you configure authenticated network access.</p></section></div>';
+
 }
 
 function renderHelp() {
@@ -739,7 +674,7 @@ async function refreshGlobal() {
   state.socketState = sensingService.state;
   state.lastGlobalRefresh = Date.now();
   setGlobalStatus();
-  if ((state.route === 'overview' || state.route === 'space') && !isEditingForm()) renderPage();
+  if (state.route === 'overview' && main.dataset.sourceMode !== sourcePresentation().mode) renderPage();
 }
 
 function fulfilled(results, index, fallback) {
@@ -751,6 +686,7 @@ function rejectedMessage(results, index) {
 }
 
 async function loadRoute(route, options) {
+  if (!['devices', 'calibration', 'recordings', 'models', 'integrations'].includes(route)) return;
   const quiet = Boolean(options && options.quiet);
   const requestId = ++state.pendingRouteRequest;
   if (!quiet) {
@@ -830,11 +766,12 @@ async function loadRoute(route, options) {
 function isEditingForm() {
   const active = document.activeElement;
   return Boolean(active && main.contains(active) &&
-    (active.matches('input, textarea, select') || active.isContentEditable));
+    (active.matches('input, textarea, select, button, summary') || active.isContentEditable));
 }
 
 function parseRoute() {
-  const route = window.location.hash.slice(1).toLowerCase();
+  const hash = window.location.hash.slice(1).toLowerCase();
+  const route = hash === 'space' ? 'overview' : hash;
   return Object.prototype.hasOwnProperty.call(ROUTES, route) ? route : 'overview';
 }
 
@@ -1051,12 +988,12 @@ async function handleAction(target) {
     return;
   }
   if (action === 'token-test') {
-    await performAction(target, async () => { await api.get('/health/ready'); }, 'The API responded successfully.');
+    await performAction(target, async () => { await api.get('/api/v1/info'); }, 'The API responded successfully.');
     return;
   }
   if (action === 'calibration-stop' || action === 'calibration-cancel' || action === 'calibration-reset') {
     const status = state.page.calibration && state.page.calibration.status;
-
+    const identity = calibrationIdentity(status);
     if (!identity || !identity.boot_epoch) {
       showToast('The server has not returned a current calibration identity.', 'error');
       return;
@@ -1101,6 +1038,9 @@ async function handleAction(target) {
 }
 
 function bindEvents() {
+  document.querySelector('.skip-link').addEventListener('click', event => { event.preventDefault(); main.focus(); });
+  window.addEventListener('ruview-theme-change', updateLiveOverviewFields);
+  main.addEventListener('toggle', event => { if (event.target.matches('.diagnostics')) updateLiveOverviewFields(); }, true);
   document.getElementById('refresh-button').addEventListener('click', async event => {
     const target = event.currentTarget;
     target.classList.add('is-refreshing');
@@ -1197,7 +1137,7 @@ async function init() {
   window.setInterval(() => {
     if (document.hidden) return;
     void refreshGlobal();
-    if (state.route !== 'overview' && state.route !== 'space' && state.route !== 'settings' && !isEditingForm()) {
+    if (state.route !== 'overview' && state.route !== 'settings' && !isEditingForm()) {
       void loadRoute(state.route, { quiet: true });
     }
   }, 12000);

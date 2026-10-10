@@ -1,23 +1,22 @@
-/* RuView — Dual-Modal Pose Fusion Demo
-   Dark theme matching Observatory */
+/* RuView — Experimental pose fusion lab */
 
 
 :root {
-  --bg-deep:     #080c14;
-  --bg-panel:    rgba(8, 16, 28, 0.92);
-  --bg-panel-border: rgba(0, 210, 120, 0.25);
-  --green-glow:  #00d878;
-  --green-bright:#3eff8a;
-  --green-dim:   #0a6b3a;
-  --amber:       #ffb020;
+  --bg-deep:     #08090a;
+  --bg-panel:    #0f1011;
+  --bg-panel-border: rgba(255, 255, 255, .05);
+  --green-glow:  #5e6ad2;
+  --green-bright:#828fff;
+  --green-dim:   #343b78;
+  --amber:       #f59e0b;
   --amber-dim:   #a06800;
-  --blue-signal: #2090ff;
-  --blue-dim:    #0a3060;
-  --red-alert:   #ff3040;
-  --cyan:        #00e5ff;
-  --text-primary:   #e8ece0;
-  --text-secondary: rgba(232,236,224, 0.55);
-  --text-label:     rgba(232,236,224, 0.35);
+  --blue-signal: #828fff;
+  --blue-dim:    #262b56;
+  --red-alert:   #e53935;
+  --cyan:        #a8b1ff;
+  --text-primary:   #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-label:     #8a8f98;
   --radius: 8px;
 }
 

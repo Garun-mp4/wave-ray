@@ -4,8 +4,8 @@
   "description": "Local operations console for inspecting Wi-Fi/CSI sources, devices, signal data, recordings, and supported activity models.",
   "start_url": "/ui/",
   "display": "standalone",
-  "background_color": "#101114",
-  "theme_color": "#101114",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
   "orientation": "any",
   "categories": ["utilities", "developer tools"],
   "icons": [

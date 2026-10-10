@@ -316,15 +316,15 @@ Go Compose service. It uses static HTML, CSS, and JavaScript modules; no Node
 package installation is required to run it. For startup configuration, use
 [`backend/README.md`](../backend/README.md).
 
-The workspace provides Overview, Space, Devices, Calibration, Recordings & data,
-Models & training, Integrations, Settings, and Help. Observatory and Pose Fusion
-remain under Labs as separate research/legacy pages.
+The workspace provides Monitor, Devices, Calibration, Recordings, Models,
+Settings, and Help. Integrations is reached through Settings. The header sun/moon
+button switches the complete light/dark theme and saves the browser preference.
 
-The Space page displays only the backend's normalized signal diagnostic and
-current frame contributors. It is not a floor plan or a person/object tracking
-view. The current Go capability API reports metric person localization,
-validated multi-person pose, and calibrated heart/breathing measurements as
-unavailable. Synthetic fallback frames are labeled as generated data.
+Monitor includes optional normalized signal diagnostics. The grid is not a floor
+plan or a person/object tracking view. The old Space bookmark opens Monitor;
+Observatory and Pose Fusion URLs redirect there. The current Go capability API
+reports accepted person coordinates, multi-person pose and calibrated vital signs
+as unavailable. Synthetic frames remain explicitly labeled as generated data.
 
 Use the API token setting only with the token configured for the local server.
 It is kept in the current browser origin's local storage and is sent as a
@@ -1421,34 +1421,11 @@ The Rust sensing server binary accepts the following flags:
 
 ## Observatory Visualization
 
-The Observatory is an immersive Three.js visualization that renders WiFi sensing data as a cinematic 3D experience. It features room-scale props, wireframe human figures, WiFi signal animations, and a live data HUD.
-
-**URL:** `http://localhost:3000/ui/observatory.html`
-
-**Features:**
-
-| Feature | Description |
-|---------|-------------|
-| Room scene | Furniture, walls, floor with emissive materials and 6-point lighting |
-| Wireframe figures | Up to 4 human skeletons with joint pulsation synced to breathing |
-| Signal field | Volumetric WiFi wave visualization |
-| Live HUD | Heart rate, breathing rate, confidence, RSSI, motion level |
-| Auto-detect | Automatically connects to live ESP32 data when sensing server is running |
-| Scenario cycling | 6 preset scenarios with smooth transitions (demo mode) |
-
-**Keyboard shortcuts:**
-
-| Key | Action |
-|-----|--------|
-| `1-6` | Switch scenario |
-| `A` | Toggle auto-cycle |
-| `P` | Pause/resume |
-| `S` | Open settings |
-| `R` | Reset camera |
-
-**Live data auto-detect:** When served by the sensing server, the Observatory probes `/health` on the same origin and automatically connects via WebSocket. The HUD badge switches from `DEMO` to `LIVE`. No configuration needed.
-
----
+The experimental Observatory and Pose Fusion screens are retired in the current
+Go operations interface. Their old URLs open Monitor. Scenario actors, synthetic
+heart/breathing rates and pose-fusion scores were not validated measurements.
+Use Monitor for source/readings, Devices for CSI evidence and Calibration for
+room-bound baselines. Research source files remain available for historical study.
 
 ## Loading the Pretrained Model from Hugging Face
 

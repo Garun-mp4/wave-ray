@@ -1,25 +1,25 @@
 /* ============================================================
    RuView Observatory — Foundation Color Scheme
-   Warm dark background, electric green wireframe, amber data
+   Shared dark operations UI with restrained indigo signal accents
    ============================================================ */
 
 
 :root {
-  --bg-deep:     #080c14;
-  --bg-panel:    rgba(8, 16, 28, 0.85);
-  --bg-panel-border: rgba(0, 210, 120, 0.2);
-  --green-glow:  #00d878;
-  --green-bright:#3eff8a;
-  --green-dim:   #0a6b3a;
-  --amber:       #ffb020;
-  --amber-dim:   #a06800;
-  --blue-signal: #2090ff;
-  --blue-dim:    #0a3060;
-  --red-alert:   #ff3040;
-  --red-heart:   #ff4060;
-  --text-primary:   #e8ece0;
-  --text-secondary: rgba(232,236,224, 0.55);
-  --text-label:     rgba(232,236,224, 0.4);
+  --bg-deep: var(--color-bg-marketing);
+  --bg-panel: var(--color-bg-panel);
+  --bg-panel-border: var(--color-border-subtle);
+  --green-glow: var(--color-accent-primary);
+  --green-bright: var(--color-accent-hover);
+  --green-dim: var(--color-bg-level3);
+  --amber: var(--color-status-warning);
+  --amber-dim: var(--color-status-warning);
+  --blue-signal: var(--color-accent-hover);
+  --blue-dim: var(--color-bg-secondary);
+  --red-alert: var(--color-status-error);
+  --red-heart: var(--color-accent-primary);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-label: var(--color-text-tertiary);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,7 +27,7 @@
 body {
   background: var(--bg-deep);
   overflow: hidden;
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: var(--font-body);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
 }
@@ -59,7 +59,7 @@ body {
   font-size: 32px;
   color: var(--text-primary);
   letter-spacing: -0.5px;
-  text-shadow: 0 0 30px rgba(0, 216, 120, 0.3);
+  text-shadow: none;
 }
 
 .pi {
@@ -91,9 +91,9 @@ body {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 20px;
-  background: rgba(0, 216, 120, 0.1);
-  border: 1px solid rgba(0, 216, 120, 0.25);
-  font-family: 'JetBrains Mono', monospace;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-standard);
+  font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 1px;
   color: var(--green-glow);
@@ -105,7 +105,7 @@ body {
   display: inline-block;
 }
 .dot--demo { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-.dot--live { background: var(--green-glow); box-shadow: 0 0 6px var(--green-glow); animation: pulse-dot 2s infinite; }
+.dot--live { background: var(--color-status-success); box-shadow: none; animation: none; }
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
@@ -118,8 +118,8 @@ body {
   gap: 8px;
   padding: 5px 14px;
   border-radius: 20px;
-  background: rgba(255, 176, 32, 0.1);
-  border: 1px solid rgba(255, 176, 32, 0.25);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-standard);
   pointer-events: auto;
 }
 #autoplay-icon {
@@ -142,7 +142,7 @@ body {
 #scenario-quick-select:hover,
 #scenario-quick-select:focus { color: var(--green-glow); }
 #scenario-quick-select option {
-  background: #0c1420;
+  background: var(--color-bg-secondary);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -212,8 +212,8 @@ body {
 .vital-label {
   font-size: 10px;
   color: var(--text-label);
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   margin-bottom: 3px;
 }
 
@@ -302,17 +302,17 @@ body {
 }
 
 .presence--present {
-  background: rgba(0, 216, 120, 0.1);
-  color: var(--green-glow);
-  border: 1px solid rgba(0, 216, 120, 0.3);
-  box-shadow: 0 0 20px rgba(0, 216, 120, 0.1);
+  background: rgba(94, 106, 210, .14);
+  color: var(--color-accent-hover);
+  border: 1px solid rgba(94, 106, 210, .35);
+  box-shadow: none;
 }
 
 .presence--active {
-  background: rgba(255, 176, 32, 0.1);
-  color: var(--amber);
-  border: 1px solid rgba(255, 176, 32, 0.3);
-  box-shadow: 0 0 20px rgba(255, 176, 32, 0.1);
+  background: rgba(94, 106, 210, .14);
+  color: var(--color-accent-hover);
+  border: 1px solid rgba(94, 106, 210, .35);
+  box-shadow: none;
 }
 
 .fall-alert {
@@ -324,9 +324,9 @@ body {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 2px;
-  background: rgba(255, 48, 64, 0.15);
+  background: rgba(229, 57, 53, .12);
   color: var(--red-alert);
-  border: 1px solid rgba(255, 48, 64, 0.4);
+  border: 1px solid rgba(229, 57, 53, .35);
   animation: pulse-alert 0.8s infinite;
 }
 
@@ -387,32 +387,32 @@ body {
 .key-hint {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: rgba(255,255,255,0.2);
-  letter-spacing: 0.5px;
-  padding: 3px 8px;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0;
+  padding: 3px 0;
   border-radius: 4px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: transparent;
+  border: 0;
 }
 
 /* ---- Settings button ---- */
 #settings-btn {
   pointer-events: auto;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-standard);
   color: var(--text-secondary);
   font-size: 18px;
   width: 34px; height: 34px;
-  border-radius: 50%;
+  border-radius: var(--radius-comfortable);
   cursor: pointer;
   transition: all 0.2s;
   display: flex; align-items: center; justify-content: center;
   padding: 0;
 }
 #settings-btn:hover {
-  background: rgba(0, 216, 120, 0.15);
-  border-color: var(--green-glow);
-  color: var(--green-glow);
+  background: rgba(255, 255, 255, .05);
+  border-color: var(--color-border-standard);
+  color: var(--color-text-primary);
 }
 
 /* ---- Settings Dialog ---- */
@@ -430,14 +430,14 @@ body {
 }
 
 .settings-dialog {
-  background: rgba(10, 16, 28, 0.96);
-  border: 1px solid rgba(0, 216, 120, 0.2);
-  border-radius: 16px;
-  width: 440px;
+  background: var(--color-bg-level3);
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-panel);
+  width: min(560px, calc(100vw - 32px));
   max-height: 80vh;
   overflow-y: auto;
   padding: 0;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,216,120,0.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,.15), 0 8px 24px rgba(0,0,0,.2), inset 0 0 0 1px var(--color-border-subtle);
 }
 
 .settings-header {
@@ -445,7 +445,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--color-border-subtle);
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   font-weight: 600;
@@ -467,7 +467,7 @@ body {
 
 .settings-tabs {
   display: flex;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--color-border-subtle);
   padding: 0 12px;
 }
 
@@ -475,10 +475,10 @@ body {
   background: none;
   border: none;
   color: var(--text-label);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
   padding: 10px 14px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -516,7 +516,7 @@ body {
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255,255,255,0.08);
+  background: var(--color-border-standard);
   border-radius: 2px;
   outline: none;
 }
@@ -524,16 +524,16 @@ body {
   -webkit-appearance: none;
   width: 14px; height: 14px;
   border-radius: 50%;
-  background: var(--green-glow);
+  background: var(--color-accent-primary);
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(0,216,120,0.4);
+  box-shadow: none;
 }
 
 .setting-row input[type="color"] {
   -webkit-appearance: none;
   width: 36px; height: 24px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 4px;
+  border: 1px solid var(--color-border-standard);
+  border-radius: var(--radius-comfortable);
   background: none;
   cursor: pointer;
   padding: 0;
@@ -544,7 +544,7 @@ body {
 .setting-row select,
 .setting-row input[type="text"] {
   flex: 1;
-  background: #0c1420;
+  background: var(--color-bg-secondary);
   border: 1px solid rgba(255,255,255,0.1);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', monospace;
@@ -555,16 +555,16 @@ body {
 }
 .setting-row select:focus,
 .setting-row input[type="text"]:focus {
-  border-color: var(--green-glow);
+  border-color: var(--color-accent-primary);
 }
 .setting-row select option {
-  background: #0c1420;
+  background: var(--color-bg-level3);
   color: var(--text-primary);
   padding: 6px 10px;
 }
 .setting-row select optgroup {
-  background: #0a1018;
-  color: var(--green-glow);
+  background: var(--color-bg-level3);
+  color: var(--color-accent-hover);
   font-style: normal;
   font-weight: 600;
   padding: 4px 0;
@@ -572,7 +572,7 @@ body {
 
 .setting-row input[type="checkbox"] {
   width: 18px; height: 18px;
-  accent-color: var(--green-glow);
+  accent-color: var(--color-accent-primary);
   cursor: pointer;
 }
 
@@ -583,7 +583,7 @@ body {
 .range-val {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: var(--green-glow);
+  color: var(--color-accent-hover);
   min-width: 44px;
   text-align: right;
 }
@@ -592,19 +592,20 @@ body {
   width: 100%;
   padding: 8px;
   margin-top: 6px;
-  background: rgba(0, 216, 120, 0.08);
-  border: 1px solid rgba(0, 216, 120, 0.2);
-  color: var(--green-glow);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 1px;
-  border-radius: 6px;
+  background: rgba(94, 106, 210, .14);
+  border: 1px solid rgba(94, 106, 210, .35);
+  color: var(--color-accent-hover);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: 0;
+  border-radius: var(--radius-comfortable);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }
 .settings-btn:hover {
-  background: rgba(0, 216, 120, 0.15);
-  border-color: var(--green-glow);
+  background: rgba(94, 106, 210, .2);
+  border-color: var(--color-accent-primary);
 }
 
 /* ---- Scenario Description ---- */
@@ -646,7 +647,7 @@ body {
   color: var(--badge-color, var(--text-secondary));
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--badge-color, rgba(255,255,255,0.1));
-  box-shadow: 0 0 6px color-mix(in srgb, var(--badge-color, transparent) 30%, transparent);
+  box-shadow: none;
 }
 
 /* ---- Person Count Dots ---- */
@@ -663,7 +664,7 @@ body {
   height: 6px;
   border-radius: 50%;
   display: inline-block;
-  background: rgba(255,255,255,0.08);
+  background: var(--color-border-standard);
   border: 1px solid rgba(255,255,255,0.1);
   transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
@@ -671,7 +672,7 @@ body {
 .person-dot--active {
   background: var(--green-glow);
   border-color: var(--green-glow);
-  box-shadow: 0 0 4px rgba(0, 216, 120, 0.4);
+  box-shadow: none;
 }
 
 /* ---- Vital Value Color Transitions ---- */
@@ -691,7 +692,6 @@ body {
 }
 
 @media (max-width: 800px) {
-  .data-panel { display: none; }
   #key-hints { display: none; }
   .settings-dialog { width: 95vw; }
 }
@@ -704,14 +704,14 @@ body {
   width: min(760px, calc(100vw - 24px));
   padding: 10px 14px;
   transform: translateX(-50%);
-  border: 1px solid rgba(255, 176, 32, .55);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 8px;
-  background: rgba(30, 24, 16, .97);
-  color: #f2d49c;
-  font: 12px/1.5 system-ui, sans-serif;
-  text-align: center;
+  background: rgba(15, 16, 17, .94);
+  color: var(--color-text-secondary);
+  font: 12px/1.5 var(--font-body);
+  text-align: left;
   pointer-events: auto;
 }
-.research-disclaimer strong { color: #fff1d5; }
-.research-disclaimer a { margin-left: 6px; color: #ffffff; text-decoration: underline; text-underline-offset: 2px; }
+.research-disclaimer strong { color: var(--color-text-primary); }
+.research-disclaimer a { margin-left: 6px; color: var(--color-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 800px) { .research-disclaimer { top: 98px; padding: 8px 10px; } }

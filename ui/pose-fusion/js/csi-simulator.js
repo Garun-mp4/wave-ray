@@ -16,6 +16,7 @@ export class CsiSimulator {
     this.timeWindow = opts.timeWindow || 56;   // frames in sliding window
     this.mode = 'demo'; // 'demo' | 'live'
     this.ws = null;
+    this.onSyntheticFrame = null;
 
     // Circular buffer for CSI frames
     this.amplitudeBuffer = [];
@@ -310,6 +311,13 @@ export class CsiSimulator {
     if (typeof this.onVerifiedFrame === 'function') this.onVerifiedFrame();
   }
 
+  _markSyntheticFrame() {
+    const wasLive = this.isLive;
+    this.verifiedFrame = false;
+    this.mode = 'demo';
+    if (wasLive && typeof this.onSyntheticFrame === 'function') this.onSyntheticFrame();
+  }
+
   _handleJsonFrame(msg) {
     // Sensing server sends: { type: "sensing_update", nodes: [{ amplitude: [...], subcarrier_count }], classification, features }
     this._liveAmplitude = new Float32Array(this.subcarriers);
@@ -318,6 +326,18 @@ export class CsiSimulator {
     // Extract amplitude from sensing_update node data
     const node = (msg.nodes && msg.nodes[0]) || msg;
     const ampArr = node.amplitude || msg.amplitude;
+    const sourceState = [msg.source_state, node.source_state]
+      .find(value => typeof value === 'string')?.toLowerCase() || '';
+    const source = [msg.source, node.source]
+      .filter(value => typeof value === 'string')
+      .join(' ')
+      .toLowerCase();
+    const synthetic = msg.synthetic === true || node.synthetic === true ||
+      sourceState === 'synthetic' || sourceState === 'simulate' ||
+      source.includes('synthetic') || source.includes('simulat') || source.includes('demo');
+    const measured = msg.live === true || msg.measured === true ||
+      sourceState === 'live' || sourceState === 'measured' ||
+      /(?:^|\s|:)esp32(?:$|:|\s)/.test(source) || /(?:^|\s|:)wifi(?::live)?(?:$|\s)/.test(source);
     if (ampArr && Array.isArray(ampArr)) {
       const n = Math.min(ampArr.length, this.subcarriers);
       // Server sends raw amplitude (already magnitude), normalize to 0-1
@@ -327,8 +347,9 @@ export class CsiSimulator {
       for (let i = 0; i < n; i++) {
         this._liveAmplitude[i] = Math.abs(ampArr[i]) * scale;
       }
-      // ADR-295 (issue #1557): a real frame carrying amplitude was decoded.
-      this._markVerifiedFrame();
+      // A payload shape alone does not prove that its samples came from hardware.
+      if (synthetic || !measured) this._markSyntheticFrame();
+      else this._markVerifiedFrame();
     }
 
     // Phase from node (if available)

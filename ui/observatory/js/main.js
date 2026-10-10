@@ -18,18 +18,18 @@ import { PostProcessing } from './post-processing.js';
 import { FigurePool, SKELETON_PAIRS } from './figure-pool.js';
 import { PoseSystem } from './pose-system.js';
 import { ScenarioProps } from './scenario-props.js';
-import { HudController, DEFAULTS, SETTINGS_VERSION, PRESETS, SCENARIO_NAMES } from './hud-controller.js';
+import { HudController, DEFAULTS, SETTINGS_VERSION, PRESETS, SCENARIO_NAMES } from './hud-controller.js?v=12';
 
 // ---- Palette ----
 const C = {
-  greenGlow:  0x00d878,
-  greenBright:0x3eff8a,
-  greenDim:   0x0a6b3a,
-  amber:      0xffb020,
-  blueSignal: 0x2090ff,
-  redAlert:   0xff3040,
-  redHeart:   0xff4060,
-  bgDeep:     0x080c14,
+  greenGlow:  0x5e6ad2,
+  greenBright:0x828fff,
+  greenDim:   0x34363a,
+  amber:      0xf59e0b,
+  blueSignal: 0x5e6ad2,
+  redAlert:   0xe53935,
+  redHeart:   0xe53935,
+  bgDeep:     0x08090a,
 };
 
 // SCENARIO_NAMES, DEFAULTS, SETTINGS_VERSION, PRESETS imported from hud-controller.js
@@ -44,9 +44,21 @@ class Observatory {
     // Load saved settings
     try {
       const ver = localStorage.getItem('ruview-settings-version');
-      if (ver === SETTINGS_VERSION) {
+      if (ver === SETTINGS_VERSION || ver === '6' || ver === '7') {
         const saved = localStorage.getItem('ruview-observatory-settings');
-        if (saved) Object.assign(this.settings, JSON.parse(saved));
+        if (saved) {
+          Object.assign(this.settings, JSON.parse(saved));
+          if (ver === '6') {
+            if (this.settings.wireColor === '#00d878') this.settings.wireColor = DEFAULTS.wireColor;
+            if (this.settings.jointColor === '#ff4060') this.settings.jointColor = DEFAULTS.jointColor;
+          }
+          if (ver === '6' || ver === '7') {
+            if (this.settings.field === 0.45 || this.settings.field === 0.28) this.settings.field = DEFAULTS.field;
+            if (this.settings.waves === 0.4 || this.settings.waves === 0.25) this.settings.waves = DEFAULTS.waves;
+            if (this.settings.reflect === 0.2) this.settings.reflect = DEFAULTS.reflect;
+          }
+        }
+        localStorage.setItem('ruview-settings-version', SETTINGS_VERSION);
       } else {
         localStorage.removeItem('ruview-observatory-settings');
         localStorage.setItem('ruview-settings-version', SETTINGS_VERSION);
@@ -183,8 +195,8 @@ class Observatory {
   // ---- Room ----
 
   _buildRoom() {
-    this._grid = new THREE.GridHelper(12, 24, 0x1a4830, 0x0c2818);
-    this._grid.material.opacity = 0.5;
+    this._grid = new THREE.GridHelper(12, 24, 0x34363a, 0x191a1b);
+    this._grid.material.opacity = 0.2;
     this._grid.material.transparent = true;
     this._scene.add(this._grid);
 
@@ -199,10 +211,10 @@ class Observatory {
     // Reflective floor
     const floorGeo = new THREE.PlaneGeometry(12, 10);
     this._floorMat = new THREE.MeshStandardMaterial({
-      color: 0x101810,
+      color: 0x191a1b,
       roughness: 1.0 - this.settings.reflect * 0.7,
       metalness: this.settings.reflect * 0.5,
-      emissive: 0x020404,
+      emissive: 0x030405,
       emissiveIntensity: 0.08,
     });
     const floor = new THREE.Mesh(floorGeo, this._floorMat);
@@ -212,7 +224,7 @@ class Observatory {
 
     // Table under router
     const tableGeo = new THREE.BoxGeometry(0.8, 0.6, 0.5);
-    const tableMat = new THREE.MeshStandardMaterial({ color: 0x6b5840, roughness: 0.55, emissive: 0x1a1408, emissiveIntensity: 0.25 });
+    const tableMat = new THREE.MeshStandardMaterial({ color: 0x222326, roughness: 0.7, emissive: 0x050506, emissiveIntensity: 0.12 });
     const table = new THREE.Mesh(tableGeo, tableMat);
     table.position.set(-4, 0.3, -3);
     table.castShadow = true;
@@ -254,9 +266,9 @@ class Observatory {
 
   _buildWifiWaves() {
     this._wifiWaves = [];
-    for (let i = 0; i < 5; i++) {
-      const radius = 0.8 + i * 1.0;
-      const geo = new THREE.SphereGeometry(radius, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.6);
+    for (let i = 0; i < 4; i++) {
+      const radius = 0.65 + i * 0.7;
+      const geo = new THREE.SphereGeometry(radius, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.6);
       const mat = new THREE.MeshBasicMaterial({
         color: C.blueSignal,
         transparent: true, opacity: 0,
@@ -368,23 +380,20 @@ class Observatory {
     const count = gridSize * gridSize;
     const positions = new Float32Array(count * 3);
     this._fieldColors = new Float32Array(count * 3);
-    this._fieldSizes = new Float32Array(count);
     for (let iz = 0; iz < gridSize; iz++) {
       for (let ix = 0; ix < gridSize; ix++) {
         const idx = iz * gridSize + ix;
         positions[idx * 3] = (ix - gridSize / 2) * 0.6;
         positions[idx * 3 + 1] = 0.02;
         positions[idx * 3 + 2] = (iz - gridSize / 2) * 0.5;
-        this._fieldSizes[idx] = 8;
       }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(this._fieldColors, 3));
-    geo.setAttribute('size', new THREE.BufferAttribute(this._fieldSizes, 1));
     this._fieldMat = new THREE.PointsMaterial({
-      size: 0.35, vertexColors: true, transparent: true,
-      opacity: this.settings.field, blending: THREE.AdditiveBlending,
+      size: 0.08, vertexColors: true, transparent: true,
+      opacity: this.settings.field, blending: THREE.NormalBlending,
       depthWrite: false, sizeAttenuation: true,
     });
     this._fieldPoints = new THREE.Points(geo, this._fieldMat);
@@ -437,40 +446,27 @@ class Observatory {
   // ---- WebSocket live data ----
 
   _autoDetectLive() {
-    // Probe sensing server health on same origin, then common ports
-    const host = window.location.hostname || 'localhost';
-    const candidates = [
-      window.location.origin,                   // same origin (e.g. :3000)
-      `http://${host}:8765`,                     // default WS port
-      `http://${host}:3000`,                     // default HTTP port
-    ];
-    // Deduplicate
-    const unique = [...new Set(candidates)];
-
-    const tryNext = (i) => {
-      if (i >= unique.length) {
-        console.log('[Observatory] No sensing server detected, using demo mode');
-        return;
-      }
-      const base = unique[i];
-      fetch(`${base}/health`, { signal: AbortSignal.timeout(1500) })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(data => {
-          if (data && data.status === 'ok') {
-            const wsProto = base.startsWith('https') ? 'wss:' : 'ws:';
-            const urlObj = new URL(base);
-            const wsUrl = `${wsProto}//${urlObj.host}/ws/sensing`;
-            console.log('[Observatory] Sensing server detected at', base, '→', wsUrl);
-            this.settings.dataSource = 'ws';
-            this.settings.wsUrl = wsUrl;
-            void this._connectWS(wsUrl);
-          } else {
-            tryNext(i + 1);
-          }
-        })
-        .catch(() => tryNext(i + 1));
-    };
-    tryNext(0);
+    const base = window.location.origin;
+    fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) })
+      .then(response => {
+        if (!response.ok) throw new Error(`health returned ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        if (!data || (data.status !== 'ok' && data.status !== 'ready')) {
+          console.info(`[Observatory] Backend health is ${data?.status || 'unknown'}; keeping the synthetic scenario`);
+          return;
+        }
+        const wsProto = base.startsWith('https') ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProto}//${new URL(base).host}/ws/sensing`;
+        console.info('[Observatory] Go sensing backend is ready; connecting to its event stream');
+        this.settings.dataSource = 'ws';
+        this.settings.wsUrl = wsUrl;
+        void this._connectWS(wsUrl);
+      })
+      .catch(error => {
+        console.info(`[Observatory] Backend health check failed (${error.message}); keeping the synthetic scenario`);
+      });
   }
 
   // async: `/ws/sensing` is gated (ADR-272); mint a single-use ticket first.
@@ -484,7 +480,12 @@ class Observatory {
         console.log('[Observatory] WebSocket connected');
         this._hud.updateSourceBadge('ws', this._ws);
       };
-      this._ws.onmessage = (evt) => { try { this._liveData = JSON.parse(evt.data); } catch {} };
+      this._ws.onmessage = (evt) => {
+        try {
+          this._liveData = JSON.parse(evt.data);
+          this._hud.updateSourceBadge('ws', this._ws, this._liveData);
+        } catch {}
+      };
       this._ws.onclose = () => {
         console.log('[Observatory] WebSocket closed, falling back to demo');
         this._ws = null;
@@ -647,7 +648,7 @@ class Observatory {
     for (const w of this._wifiWaves) {
       const t = (elapsed * 0.8 + w.phase) % 4.5;
       const life = t / 4.5;
-      w.mat.opacity = Math.max(0, this.settings.waves * 0.25 * (1 - life));
+      w.mat.opacity = Math.max(0, this.settings.waves * 0.1 * (1 - life));
       const scale = 1 + life * 0.6;
       w.mesh.scale.set(scale, scale, scale);
       w.mesh.rotation.y = elapsed * 0.05;
@@ -661,23 +662,13 @@ class Observatory {
     if (!field) return;
     const count = Math.min(field.length, 400);
     for (let i = 0; i < count; i++) {
-      const v = field[i] || 0;
-      let r, g, b;
-      if (v < 0.3) { r = 0; g = v * 1.5; b = v * 0.3; }
-      else if (v < 0.6) {
-        const t = (v - 0.3) / 0.3;
-        r = t * 0.3; g = 0.45 + t * 0.4; b = 0.09 - t * 0.05;
-      } else {
-        const t = (v - 0.6) / 0.4;
-        r = 0.3 + t * 0.7; g = 0.85 - t * 0.2; b = 0.04;
-      }
-      this._fieldColors[i * 3] = r;
-      this._fieldColors[i * 3 + 1] = g;
-      this._fieldColors[i * 3 + 2] = b;
-      this._fieldSizes[i] = 5 + v * 15;
+      const value = Math.max(0, Math.min(1, Number(field[i]) || 0));
+      const intensity = 0.025 + value * 0.22;
+      this._fieldColors[i * 3] = 0.035 + intensity * 0.2;
+      this._fieldColors[i * 3 + 1] = 0.035 + intensity * 0.28;
+      this._fieldColors[i * 3 + 2] = 0.045 + intensity * 0.75;
     }
     this._fieldPoints.geometry.attributes.color.needsUpdate = true;
-    this._fieldPoints.geometry.attributes.size.needsUpdate = true;
   }
 
   // ---- FPS ----
