@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RuView — Dual-Modal Pose Estimation</title>
+  <title>RuView — Pose Fusion Lab</title>
   <link rel="stylesheet" href="pose-fusion/css/style.css?v=13">
 </head>
 <body>
@@ -12,23 +12,25 @@
   <header class="header">
     <div class="header-left">
       <div class="logo"><span class="pi">&pi;</span> RuView</div>
-      <div class="header-title">Dual-Modal Pose Estimation — Live Video + WiFi CSI Fusion</div>
+      <div class="header-title">Experimental video + CSI visualization</div>
     </div>
     <div class="header-right">
       <select id="mode-select" class="mode-select">
         <option value="dual">Dual Mode (Video + CSI)</option>
         <option value="video">Video Only</option>
-        <option value="csi">CSI Only (WiFi)</option>
+        <option value="csi">CSI Only (Experimental)</option>
       </select>
       <div class="status-badge">
         <span id="status-dot" class="status-dot offline"></span>
         <span id="status-label">READY</span>
       </div>
       <span id="fps-display" class="fps-badge">-- FPS</span>
-      <a href="index.html" class="back-link">&larr; Dashboard</a>
+      <a href="index.html#overview" class="back-link">&larr; Dashboard</a>
       <a href="observatory.html" class="back-link">Observatory &rarr;</a>
     </div>
   </header>
+
+  <div class="research-disclaimer" role="note"><strong>Experimental lab</strong> Pose overlays, CSI-only output and fusion scores are not validated person tracks or medical measurements. <a href="index.html#overview">Operations console</a></div>
 
   <!-- Main Grid -->
   <div class="main-grid">
@@ -37,12 +39,12 @@
     <div class="video-panel">
       <video id="webcam" autoplay playsinline muted></video>
       <canvas id="skeleton-canvas"></canvas>
-      <div class="video-overlay-label" id="mode-label">DUAL FUSION</div>
+      <div class="video-overlay-label" id="mode-label">EXPERIMENTAL FUSION</div>
 
       <div id="camera-prompt" class="camera-prompt">
-        <div class="camera-prompt-label" id="prompt-mode-label">DUAL FUSION</div>
+        <div class="camera-prompt-label" id="prompt-mode-label">EXPERIMENTAL FUSION</div>
         <p>Enable your webcam for live video pose estimation.<br>
-           Or switch to <strong>CSI Only</strong> mode for WiFi-based sensing.</p>
+           Or inspect the experimental CSI-only visualization.</p>
         <button id="start-camera-btn">Enable Camera</button>
       </div>
     </div>
@@ -184,7 +186,7 @@
     <!-- Bottom Bar -->
     <div class="bottom-bar">
       <div>
-        RuView &middot; Dual-Modal Pose Estimation &middot;
+        RuView &middot; Pose Fusion Lab &middot; Experimental outputs are not validated.
         Architecture: Conv2D &rarr; RuVector 6-Stage Attention (Flash+MHA+Hyperbolic+Linear+MoE+L/G) &rarr; Fusion &rarr; 26-Keypoint Pose
       </div>
       <div>

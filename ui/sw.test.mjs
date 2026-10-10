@@ -142,6 +142,20 @@ test('a navigation request is still served cache-first', () => {
   assert.equal(route('/ui/', { mode: 'navigate' }), true);
 });
 
+test('a signed-in shell navigation is cached under its canonical URL', async () => {
+  const path = '/ui/?signed_in=1731234567890';
+  const { responded, worker } = dispatch(path, { mode: 'navigate' });
+  await responded;
+  assert.deepEqual(worker.cachePuts, [`${ORIGIN}/ui/`]);
+});
+
+test('versioned static assets keep the query string in their cache key', async () => {
+  const path = '/ui/pose-fusion/css/style.css?v=14';
+  const { responded, worker } = dispatch(path);
+  await responded;
+  assert.deepEqual(worker.cachePuts, [`${ORIGIN}${path}`]);
+});
+
 test('API paths are still routed through the worker', () => {
   // Handled, but network-only — see the "not written to the cache" test below.
   assert.equal(route('/api/v1/models'), true);
@@ -225,4 +239,24 @@ test('the cache name is bumped so clients holding the poisoned v1 evict it', () 
   // only a name change removes it for them.
   assert.ok(!/['"]ruview-v1['"]/.test(SW_SOURCE), 'CACHE_NAME must not still be ruview-v1');
   assert.ok(/CACHE_NAME\s*=\s*['"]ruview-v[2-9]/.test(SW_SOURCE));
+});
+
+test('the Go operations shell precaches its current UI modules and registers the worker', () => {
+  const uiAssets = [
+    "'/ui/'",
+    "'/ui/index.html'",
+    "'/ui/manifest.json'",
+    "'/ui/workspace/app.js'",
+    "'/ui/workspace/workspace.css'",
+    "'/ui/workspace/icons.svg'",
+    "'/ui/services/api.service.js'",
+    "'/ui/services/sensing.service.js'",
+  ];
+  for (const asset of uiAssets) {
+    assert.ok(SW_SOURCE.includes(asset), asset + ' must be available to the offline shell');
+  }
+
+  const appSource = readFileSync(fileURLToPath(new URL('./workspace/app.js', import.meta.url)), 'utf8');
+  assert.match(appSource, /navigator\.serviceWorker\.register\(new URL\('\.\.\/sw\.js', import\.meta\.url\)\)/);
+  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v4['"]/);
 });

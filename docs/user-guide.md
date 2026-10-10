@@ -309,6 +309,26 @@ All endpoints return JSON. In simulated mode, data is generated from a determini
 
 ---
 
+## Current Go operations interface
+
+The supported operator console is served at `http://localhost:3000/ui/` by the
+Go Compose service. It uses static HTML, CSS, and JavaScript modules; no Node
+package installation is required to run it. For startup configuration, use
+[`backend/README.md`](../backend/README.md).
+
+The workspace provides Overview, Space, Devices, Calibration, Recordings & data,
+Models & training, Integrations, Settings, and Help. Observatory and Pose Fusion
+remain under Labs as separate research/legacy pages.
+
+The Space page displays only the backend's normalized signal diagnostic and
+current frame contributors. It is not a floor plan or a person/object tracking
+view. The current Go capability API reports metric person localization,
+validated multi-person pose, and calibrated heart/breathing measurements as
+unavailable. Synthetic fallback frames are labeled as generated data.
+
+Use the API token setting only with the token configured for the local server.
+It is kept in the current browser origin's local storage and is sent as a
+same-origin bearer header. Provider credentials remain server-side.
 ## Data Sources
 
 The `--source` flag controls where CSI data comes from. Valid values are

@@ -1,11 +1,8 @@
 // RuView Service Worker - Offline caching for the dashboard shell
 // Strategy: Network-first for API calls, Cache-first for static assets
 
-// Bumped from v1: an older SW cached `/oauth/status` cache-first, so browsers
-// that ran it hold a permanently signed-out answer. `activate` deletes every
-// cache whose name is not CACHE_NAME, so bumping is what evicts it from clients
-// already in the field. Bump again if a future change poisons the cache.
-const CACHE_NAME = 'ruview-v2';
+// Bumped from v3 after making static asset cache keys respect versioned URLs.
+const CACHE_NAME = 'ruview-v4';
 
 // Requests whose response depends on the caller's credentials. These must never
 // be served from the Cache API.
@@ -23,34 +20,20 @@ const NEVER_CACHE_PREFIXES = ['/oauth/'];
 // unrecognised path goes to the network untouched.
 const STATIC_ASSET = /\.(?:js|mjs|css|html|json|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|map)$/i;
 const SHELL_ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/config/api.config.js',
-  '/components/TabManager.js',
-  '/components/DashboardTab.js',
-  '/components/HardwareTab.js',
-  '/components/LiveDemoTab.js',
-  '/components/SensingTab.js',
-  '/components/PoseDetectionCanvas.js',
-  '/services/api.service.js',
-  '/services/websocket.service.js',
-  '/services/health.service.js',
-  '/services/sensing.service.js',
-  '/services/pose.service.js',
-  '/services/stream.service.js',
-  '/utils/backend-detector.js',
-  '/utils/keyboard-shortcuts.js',
-  '/utils/perf-monitor.js',
-  '/utils/toast.js',
-  '/utils/theme-toggle.js',
-  '/utils/command-palette.js',
-  '/utils/activity-log.js',
-  '/utils/data-export.js',
-  '/utils/fullscreen.js',
-  '/utils/connection-status.js',
-  '/utils/mobile-nav.js'
+  '/ui/',
+  '/ui/index.html',
+  '/ui/manifest.json',
+  '/ui/workspace/app.js',
+  '/ui/workspace/api.js',
+  '/ui/workspace/view-model.js',
+  '/ui/workspace/workspace.css',
+  '/ui/workspace/icons.svg',
+  '/ui/workspace/favicon.svg',
+  '/ui/services/api.service.js',
+  '/ui/services/sensing.service.js',
+  '/ui/services/ws-ticket.js',
+  '/ui/config/api.config.js',
+  '/ui/utils/backend-detector.js',
 ];
 
 // Install - cache shell assets
@@ -123,20 +106,26 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function cacheFirst(request) {
-  // `ignoreSearch` so the shell is a single entry. Sign-in redirects back to
-  // `/ui/?signed_in=<ms>`, which would otherwise mint a fresh cache entry per
-  // sign-in and never hit any of them again.
-  const cached = await caches.match(request, { ignoreSearch: true });
+  const url = new URL(request.url);
+  // Only normalize shell navigations. Sign-in redirects back to
+  // `/ui/?signed_in=<ms>`, which should reuse the same shell entry. Static
+  // assets keep their query strings so URLs such as `style.css?v=14` actually
+  // invalidate an older cached version.
+  const shellNavigation = request.mode === 'navigate'
+    && ['/ui/', '/ui/index.html'].includes(url.pathname);
+  const cached = shellNavigation
+    ? await caches.match(request, { ignoreSearch: true })
+    : await caches.match(request);
   if (cached) return cached;
 
   try {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
-      // Store under the search-less URL to match how it is looked up above.
-      const key = new URL(request.url);
-      key.search = '';
-      cache.put(key.toString(), response.clone());
+      // Keep query-bearing asset versions distinct; canonicalize only shell
+      // redirects so auth timestamps do not create unbounded cache entries.
+      if (shellNavigation) url.search = '';
+      cache.put(url.toString(), response.clone());
     }
     return response;
   } catch {

@@ -3,7 +3,6 @@
    Warm dark background, electric green wireframe, amber data
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
   --bg-deep:     #080c14;
@@ -696,3 +695,23 @@ body {
   #key-hints { display: none; }
   .settings-dialog { width: 95vw; }
 }
+
+.research-disclaimer {
+  position: fixed;
+  z-index: 2000;
+  top: 82px;
+  left: 50%;
+  width: min(760px, calc(100vw - 24px));
+  padding: 10px 14px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 176, 32, .55);
+  border-radius: 8px;
+  background: rgba(30, 24, 16, .97);
+  color: #f2d49c;
+  font: 12px/1.5 system-ui, sans-serif;
+  text-align: center;
+  pointer-events: auto;
+}
+.research-disclaimer strong { color: #fff1d5; }
+.research-disclaimer a { margin-left: 6px; color: #ffffff; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 800px) { .research-disclaimer { top: 98px; padding: 8px 10px; } }

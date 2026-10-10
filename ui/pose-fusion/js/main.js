@@ -210,7 +210,7 @@ function updateModeUI() {
   }
 
   // Update mode label in both the overlay and the camera prompt
-  const labelMap = { dual: 'DUAL FUSION', video: 'VIDEO ONLY', csi: 'CSI ONLY' };
+  const labelMap = { dual: 'EXPERIMENTAL FUSION', video: 'VIDEO ONLY', csi: 'CSI-ONLY LAB' };
   const modeLabel = document.getElementById('mode-label');
   const promptLabel = document.getElementById('prompt-mode-label');
   if (modeLabel) modeLabel.textContent = labelMap[mode] || mode;
@@ -326,7 +326,7 @@ function mainLoop(timestamp) {
   const keypoints = poseDecoder.decode(fusedEmb, motionRegion, elapsed, csiState);
 
   // --- Render Skeleton ---
-  const labelMap = { dual: 'DUAL FUSION', video: 'VIDEO ONLY', csi: 'CSI ONLY' };
+  const labelMap = { dual: 'EXPERIMENTAL FUSION', video: 'VIDEO ONLY', csi: 'CSI-ONLY LAB' };
   renderer.drawSkeleton(skeletonCtx, keypoints, skeletonCanvas.width, skeletonCanvas.height, {
     minConfidence: confidenceThreshold,
     color: mode === 'csi' ? 'amber' : 'green',
