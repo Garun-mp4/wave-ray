@@ -172,7 +172,7 @@ func run(args []string) error {
 			return err
 		}
 		defer automatic.Stop()
-		logger.Warn("no source probe is available yet; serving explicitly labeled simulation until the first valid ESP32 packet")
+		logger.Info("waiting for real ESP32 or host Wi-Fi observations; no synthetic fallback")
 	}
 	var receiver *ingest.Receiver
 	if !cfg.DisableUDP && cfg.Source != "simulate" && cfg.Source != "wifi" {
@@ -186,9 +186,6 @@ func run(args []string) error {
 		}
 		api.Ingress = receiver
 		logger.Info("CSI UDP listener ready", "address", receiver.Addr().String(), "allowlist_active", udpAllowlist.Active())
-	} else if cfg.Source == "simulate" {
-		logger.Warn("synthetic source explicitly enabled; output is not live sensor data")
-		source.StartSimulation(ctx, store, time.Duration(cfg.TickMS)*time.Millisecond)
 	}
 	if cfg.Source == "wifi" || cfg.Source == "auto" {
 		scanner, scanErr := source.NewHostWiFiScanner()
@@ -196,7 +193,7 @@ func run(args []string) error {
 			if cfg.Source == "wifi" {
 				return fmt.Errorf("host Wi-Fi source: %w", scanErr)
 			}
-			logger.Info("host Wi-Fi probing is unavailable on this platform; auto mode keeps UDP and labeled fallback", "reason", scanErr.Error())
+			logger.Info("host Wi-Fi probing is unavailable on this platform; waiting for ESP32 UDP input", "reason", scanErr.Error())
 		} else {
 			wifiSource, startErr := source.StartHostWiFi(ctx, store, automatic, time.Duration(cfg.TickMS)*time.Millisecond, scanner)
 			if startErr != nil {

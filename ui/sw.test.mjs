@@ -260,14 +260,14 @@ test('the Go operations shell precaches its current UI modules and registers the
     "'/ui/'",
     "'/ui/index.html'",
     "'/ui/manifest.json'",
-    "'/ui/workspace/app.js?v=11'",
-    "'/ui/workspace/workspace.css?v=11'",
+    "'/ui/workspace/app.js?v=14'",
+    "'/ui/workspace/workspace.css?v=12'",
     "'/ui/workspace/design-tokens.css?v=7'",
     "'/ui/workspace/theme.js?v=2'",
     "'/ui/workspace/fonts/InterVariable.woff2'",
     "'/ui/workspace/icons.svg'",
     "'/ui/services/api.service.js'",
-    "'/ui/services/sensing.service.js'",
+    "'/ui/services/sensing.service.js?v=2'",
   ];
   for (const asset of uiAssets) {
     assert.ok(SW_SOURCE.includes(asset), asset + ' must be available to the offline shell');
@@ -275,5 +275,5 @@ test('the Go operations shell precaches its current UI modules and registers the
 
   const appSource = readFileSync(fileURLToPath(new URL('./workspace/app.js', import.meta.url)), 'utf8');
   assert.match(appSource, /navigator\.serviceWorker\.register\(new URL\('\.\.\/sw\.js', import\.meta\.url\)\)/);
-  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v21['"]/);
+  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v24['"]/);
 });

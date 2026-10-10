@@ -2,7 +2,7 @@
 // Strategy: Network-first for API calls, Cache-first for static assets
 
 // Bumped when shared and lab UI styles change so clients leave old offline assets.
-const CACHE_NAME = 'ruview-v21';
+const CACHE_NAME = 'ruview-v24';
 
 // Requests whose response depends on the caller's credentials. These must never
 // be served from the Cache API.
@@ -23,17 +23,18 @@ const SHELL_ASSETS = [
   '/ui/',
   '/ui/index.html',
   '/ui/manifest.json',
-  '/ui/workspace/app.js?v=11',
+  '/ui/workspace/app.js?v=14',
   '/ui/workspace/api.js',
+  '/ui/workspace/space.js?v=3',
   '/ui/workspace/view-model.js',
-  '/ui/workspace/workspace.css?v=11',
+  '/ui/workspace/workspace.css?v=12',
   '/ui/workspace/design-tokens.css?v=7',
   '/ui/workspace/theme.js?v=2',
   '/ui/workspace/fonts/InterVariable.woff2',
   '/ui/workspace/icons.svg',
   '/ui/workspace/favicon.svg',
   '/ui/services/api.service.js',
-  '/ui/services/sensing.service.js',
+  '/ui/services/sensing.service.js?v=2',
   '/ui/services/ws-ticket.js',
   '/ui/config/api.config.js',
   '/ui/utils/backend-detector.js',

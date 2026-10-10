@@ -201,7 +201,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	fs.Var(&udpAllow, "udp-allow", "allowed UDP sender IP/CIDR; may be repeated or comma-separated")
 	fs.BoolVar(&cfg.UDPInsecureLAN, "udp-insecure-lan", false, "allow routable UDP bind without a source allowlist")
 	fs.Var(&allowedHosts, "allowed-host", "allowed Host header; may be repeated or comma-separated")
-	fs.StringVar(&cfg.Source, "source", cfg.Source, "data source: auto, wifi, esp32, or simulate")
+	fs.StringVar(&cfg.Source, "source", cfg.Source, "real data source: auto, wifi, or esp32")
 	fs.StringVar(&nodePositions, "node-positions", nodePositions, "node coordinates as x,y,z entries or node_id:x,y,z entries separated by semicolons")
 	fs.Uint64Var(&cfg.TickMS, "tick-ms", cfg.TickMS, "minimum stream update interval in milliseconds")
 	fs.StringVar(&cfg.UIPath, "static-dir", cfg.UIPath, "directory containing the static UI")
@@ -283,9 +283,9 @@ func (c Config) Validate() error {
 		return errors.New("installation-name must be non-empty UTF-8, at most 63 bytes, and contain no control characters")
 	}
 	switch strings.ToLower(c.Source) {
-	case "auto", "esp32", "wifi", "simulate", "simulated":
+	case "auto", "esp32", "wifi":
 	default:
-		return fmt.Errorf("unsupported source %q (valid: auto, esp32, wifi, simulate)", c.Source)
+		return fmt.Errorf("unsupported source %q (real measurements only; valid: auto, esp32, wifi)", c.Source)
 	}
 	if _, err := filepath.Abs(c.DataDir); err != nil {
 		return fmt.Errorf("invalid data-dir: %w", err)

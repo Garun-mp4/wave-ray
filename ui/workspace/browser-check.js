@@ -4,7 +4,7 @@ async page => {
   await page.goto('http://localhost:3000/ui/');
   await page.waitForFunction(() => document.querySelector('.monitor-columns'));
   const rows = [];
-  const routes = ['overview', 'devices', 'calibration', 'recordings', 'models', 'settings', 'integrations', 'help'];
+  const routes = ['overview', 'space', 'devices', 'calibration', 'recordings', 'models', 'settings', 'integrations', 'help'];
   for (const theme of ['light', 'dark']) {
     if (await page.evaluate(() => document.documentElement.dataset.theme) !== theme) await page.locator('#theme-toggle').click();
     await page.reload();
@@ -25,7 +25,7 @@ async page => {
         if (result.scroll > width) throw Error('Overflow: ' + JSON.stringify(result));
         if (result.headings !== 1) throw Error('Missing page heading: ' + route);
         rows.push({...result, theme});
-        if ((width === 390 && route === 'overview') || (width === 1440 && ['overview','calibration','models','settings'].includes(route))) {
+        if ((width === 390 && ['overview','space'].includes(route)) || (width === 1440 && ['overview','space','calibration','models','settings'].includes(route))) {
           await page.screenshot({path:'.playwright-cli/final-'+theme+'-'+width+'-'+route+'.png', fullPage:true});
         }
       }

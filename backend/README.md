@@ -24,8 +24,8 @@ explicitly in the container when needed.
 ## Run the default Go server in Docker Compose
 
 From the repository root in PowerShell, generate a 256-bit API token and
-select the UDP sender allowlist. For a computer without an ESP32, use the
-explicitly synthetic source and keep the UDP port on loopback:
+select the UDP sender allowlist. Without an ESP32, use the physical source and
+keep the UDP port on loopback: the service waits without generating frames.
 
 ```powershell
 $tokenRng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -36,12 +36,12 @@ $tokenRng.Dispose()
 $tokenBytes = $null
 $env:RUVIEW_UDP_ALLOW = "127.0.0.1"
 $env:RUVIEW_UDP_PUBLISH_ADDR = "127.0.0.1"
-$env:CSI_SOURCE = "simulate"
+$env:CSI_SOURCE = "esp32"
 docker compose -f docker/docker-compose.yml up --build sensing-server
 ```
 
 For a connected ESP32, switch the source and set the permitted sender address.
-If the same PowerShell session was used for the loopback simulation above,
+If the same PowerShell session was used for the loopback setup above,
 clear its loopback-only publish setting before starting hardware mode:
 
 ```powershell
@@ -84,10 +84,11 @@ remain unavailable to those sessions. The static API token retains legacy
 full-authority behavior.
 
 The UI/API are published on loopback at `http://127.0.0.1:3000`; WebSocket is
-on port `3001`, and CSI UDP on port `5005`. Set `CSI_SOURCE=simulate` for a
-labelled synthetic demo or `CSI_SOURCE=esp32` for live CSI. With no sensor in
-ESP32 mode, the service stays online and reports the source as offline. Synthetic
-input is not sensor evidence and must not be used to validate detection quality.
+on port `3001`, and CSI UDP on port `5005`. Use `CSI_SOURCE=esp32` for live CSI.
+With no sensor, the service stays online and reports the source as offline.
+Runtime sources `simulate` and `simulated` are rejected; `auto` waits for real
+input and never starts a synthetic fallback. Test fixtures remain isolated from
+the runtime. The browser never generates replacement measurements.
 Go SDK and modules are downloaded only into Docker build/container layers.
 
 The Python reference server is excluded from normal startup. To run it
@@ -213,8 +214,8 @@ are not CSI measurements and do not establish metric person locations, person
 counts, heart rate, or breathing rate. Host Wi-Fi scanning is unavailable in
 Linux Docker containers and on macOS in this Go version. In `auto` mode, the
 Windows Wi-Fi source can coexist with UDP input, and fresh ESP32 CSI takes
-priority over host RSSI. Synthetic data is labeled and stops after the first
-valid live sensing input.
+priority over host RSSI. With no supported input, the server waits without
+generating sensing events.
 
 Fresh node classifications are combined using deterministic freshness-weighted
 room voting and 1.5-second hysteresis. Edge-reported counts are marked
@@ -248,8 +249,8 @@ described below and remains experimental.
 ## Experimental pose inference and metric calibration
 
 The migration image includes the repository's `pose_v1.safetensors` and
-enables its Go CPU inference by default. Set `RUVIEW_POSE_MODEL_PATH` to an
-empty value in the Compose environment to disable it. `RUVIEW_POSE_NODE_ID`
+keeps its Go CPU inference disabled by default. For explicit research only,
+set `RUVIEW_POSE_MODEL_PATH=/app/share/pose_v1.safetensors`. `RUVIEW_POSE_NODE_ID`
 can select the one CSI node used by this single-sensor model; if it is unset,
 inference proceeds only while exactly one fresh raw CSI node is active. With
 multiple nodes, set this explicitly. RSSI-derived Wi-Fi input and CSI that does
@@ -396,3 +397,7 @@ refresh fails, the API returns the cached catalog with `stale: true`; with no
 cache, it returns a generic `503`. Configure the mirror and cache duration with
 `--edge-registry-url` and `--edge-registry-ttl-secs`, or disable it with
 `--no-edge-registry` / `RUVIEW_NO_EDGE_REGISTRY=true`.
+
+### Installation coordinates
+
+`GET /api/v1/space/layout` reads the configured ESP32/router layout. `POST` accepts the returned `revision` and a `devices` array; concurrent edits return 409. Writes require the existing admin scope when authentication is enabled. Coordinates are signed local metres with Y vertical, entered by the operator, not measured object positions. The atomic `space-layout.json` in the data directory overrides `SENSING_NODE_POSITIONS` after the first save. Moving sensors requires recalibration. A malformed stored file fails closed rather than silently replacing geometry.

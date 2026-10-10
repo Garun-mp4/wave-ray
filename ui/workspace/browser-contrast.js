@@ -2,7 +2,7 @@ async page => {
   const results = [];
   for (const theme of ['light','dark']) {
     if (await page.evaluate(() => document.documentElement.dataset.theme) !== theme) await page.locator('#theme-toggle').click();
-    for (const route of ['overview','devices','calibration','recordings','models','settings','integrations','help']) {
+    for (const route of ['overview','space','devices','calibration','recordings','models','settings','integrations','help']) {
       await page.evaluate(route => location.hash = route, route);
       await page.waitForFunction(route => document.title.toLowerCase().includes(route === 'overview' ? 'monitor' : route === 'help' ? 'help' : route), route);
       await page.locator('.loading-view').waitFor({state:'hidden'});

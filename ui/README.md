@@ -8,16 +8,21 @@ JavaScript modules. Running the frontend requires no Node packages or build serv
 - **Monitor:** source provenance, current signal readings, and setup steps.
   The normalized signal grid is optional under Signal diagnostics.
 - **Devices:** freshness, CSI sequence/rate, filtering; mesh timing under details.
+- **Space:** floor-free, rotatable perspective view of configured ESP32/AP
+  positions. Enter signed X/Y/Z metres, pan, zoom, and fit. Layout persists on
+  the server and binds ESP32 geometry by firmware node ID. Router status is not
+  inferred. No synthetic people, coverage spheres, or hotspot localization.
 - **Calibration:** room binding and baseline capture. CSI/trust evidence and
   count-factor controls are disclosed separately. Generated input cannot start
   a room calibration.
 - **Recordings:** server frame captures and labeled activity datasets.
 - **Models:** supported artifact registry and activity training; training
   parameters are collapsed by default.
-- **Settings:** browser API access, connection details, optional synthetic
-  fallback, and access to server integrations. Help explains setup and limits.
+- **Settings:** browser API access, connection details and server integrations.
+  Help explains setup and limits. Browser simulation is removed, including
+  legacy preferences and query-parameter activation.
 
-The old `#space` route opens Monitor. `observatory.html` and `pose-fusion.html`
+`#space` opens the installation view. `observatory.html` and `pose-fusion.html`
 redirect to Monitor; their synthetic scenes and biometric panels are retired.
 Research source files remain in the repository but are not loaded by the workspace.
 

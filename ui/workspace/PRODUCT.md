@@ -17,3 +17,9 @@ and synchronization, create a room-bound CSI baseline when eligible, record
 labelled data, and train or load only capabilities supported by the server.
 Static pages remain served by the Go backend; the current UI uses native
 HTML, CSS, and ES modules without a frontend build service.
+
+Runtime measurements are real-input-only: missing devices produce no frames,
+and the browser has no simulator or synthetic fallback. Space is a configuration
+view of sensor/AP positions, not an RF object detector. It displays signed
+local metre coordinates without a floor. Persons and animals remain unavailable
+until compatible models and accepted real-hardware evidence exist.

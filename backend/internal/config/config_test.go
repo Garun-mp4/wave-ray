@@ -279,7 +279,7 @@ func TestWiFiSourceIsAcceptedForRuntimePlatformValidation(t *testing.T) {
 func TestSourceEnvironmentIsHonoredUnlessExplicitFlagOverridesIt(t *testing.T) {
 	getenv := func(key string) string {
 		if key == "CSI_SOURCE" {
-			return "simulate"
+			return "wifi"
 		}
 		return ""
 	}
@@ -288,8 +288,8 @@ func TestSourceEnvironmentIsHonoredUnlessExplicitFlagOverridesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Source != "simulate" {
-		t.Fatalf("source=%q, want environment value simulate", cfg.Source)
+	if cfg.Source != "wifi" {
+		t.Fatalf("source=%q, want environment value wifi", cfg.Source)
 	}
 
 	cfg, err = Load([]string{"--source", "esp32"}, getenv)
@@ -298,5 +298,13 @@ func TestSourceEnvironmentIsHonoredUnlessExplicitFlagOverridesIt(t *testing.T) {
 	}
 	if cfg.Source != "esp32" {
 		t.Fatalf("source=%q, want explicit flag value esp32", cfg.Source)
+	}
+}
+
+func TestRuntimeRejectsSyntheticSources(t *testing.T) {
+	for _, source := range []string{"simulate", "simulated", "synthetic"} {
+		if _, err := Load([]string{"--source", source}, func(string) string { return "" }); err == nil {
+			t.Errorf("synthetic source %s accepted", source)
+		}
 	}
 }

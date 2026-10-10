@@ -10,6 +10,7 @@ services:
       - "${RUVIEW_UDP_PUBLISH_ADDR:-0.0.0.0}:${RUVIEW_UDP_HOST_PORT:-5005}:5005/udp"
     environment:
       RUVIEW_API_TOKEN: "${RUVIEW_API_TOKEN:-}"
+      RUVIEW_ALLOW_UNAUTHENTICATED: "${RUVIEW_ALLOW_UNAUTHENTICATED:-false}"
       RUVIEW_OAUTH_ISSUER: "${RUVIEW_OAUTH_ISSUER:-}"
       RUVIEW_OAUTH_JWKS_URL: "${RUVIEW_OAUTH_JWKS_URL:-}"
       RUVIEW_OAUTH_CLIENT_IDS: "${RUVIEW_OAUTH_CLIENT_IDS:-ruview}"
@@ -19,7 +20,8 @@ services:
       CSI_SOURCE: "${CSI_SOURCE:-esp32}"
       RUVIEW_PRIVACY_MODE: "${RUVIEW_PRIVACY_MODE:-false}"
       RUVIEW_ACTIVITY_STATE: "${RUVIEW_ACTIVITY_STATE:-/app/data/activity-state.json}"
-      RUVIEW_POSE_MODEL_PATH: "${RUVIEW_POSE_MODEL_PATH-/app/share/pose_v1.safetensors}"
+      # Experimental pose regression is opt-in; it is not accepted localization.
+      RUVIEW_POSE_MODEL_PATH: "${RUVIEW_POSE_MODEL_PATH:-}"
       RUVIEW_POSE_NODE_ID: "${RUVIEW_POSE_NODE_ID:--1}"
       WDP_RUFIELD_SIGNING_SEED: "${WDP_RUFIELD_SIGNING_SEED:-}"
       RUVIEW_NO_MDNS: "${RUVIEW_NO_MDNS:-true}"

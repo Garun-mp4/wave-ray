@@ -4,10 +4,14 @@ import {
   getSourcePresentation, hasUsableSignalField, normalizeMeshNodes
 } from './view-model.js';
 import { apiService, API_TOKEN_STORAGE_KEY } from '../services/api.service.js';
-import { sensingService, SIM_FALLBACK_STORAGE_KEY } from '../services/sensing.service.js';
+import { sensingService } from '../services/sensing.service.js?v=2';
+import { renderSpace, mountSpace } from './space.js?v=3';
+
+let spaceView = null;
 
 const ROUTES = {
   overview: { title: 'Monitor', description: 'Your signal source, current readings, and next steps.' },
+  space: { title: 'Space', description: 'Arrange your ESP32 sensors and access points in 3D. Coordinates are relative to your installation origin.' },
   devices: { title: 'Devices', description: 'Check node freshness, CSI sequence, and mesh clock synchronization reported by the server.' },
   calibration: { title: 'Calibration', description: 'Bind selected node IDs to a room reference, capture a stable CSI grid, and inspect the saved baseline and trust state.' },
   recordings: { title: 'Recordings', description: 'Record incoming server frames and inspect the labeled datasets available to the activity trainer.' },
@@ -93,7 +97,10 @@ function emptyState(iconName, title, message, action) {
 }
 
 function currentLatest() {
-  return state.latest && typeof state.latest === 'object' ? state.latest : null;
+  const frame = state.latest;
+  if (!frame || typeof frame !== 'object' || frame._simulated || frame.source_state === 'synthetic' ||
+      /simulat|synthetic|replay|demo/i.test(frame.source || '')) return null;
+  return frame;
 }
 
 function sourcePresentation() {
@@ -190,7 +197,7 @@ function updateLiveOverviewFields() {
     'data-source-detail': source.detail,
     'data-backend-source': state.health && state.health.source || '—',
     'data-source-age': age == null ? '—' : formatAge(age),
-    'data-node-count': state.health && Number.isFinite(state.health.nodes) ? String(state.health.nodes) : '—',
+    'data-node-count': source.mode !== 'synthetic' && state.health && Number.isFinite(state.health.nodes) ? String(state.health.nodes) : '—',
     'data-measurement-mode': latest && latest.input_mode || 'awaiting frame',
     'data-frames': state.health && Number.isFinite(state.health.frames_received) ? String(state.health.frames_received) : '—'
   };
@@ -279,6 +286,7 @@ function renderPage() {
   let content;
   switch (state.route) {
     case 'overview': content = renderOverview(); break;
+    case 'space': content = renderSpace(data); break;
     case 'devices': content = renderDevices(data); break;
     case 'calibration': content = renderCalibration(data); break;
     case 'recordings': content = renderRecordings(data); break;
@@ -290,13 +298,15 @@ function renderPage() {
   }
   if (data.loading && Object.keys(data).length === 1) content = '<div class="loading-view" role="status"><span class="loading-spinner"></span>Loading…</div>';
   const opened = state.renderedRoute === state.route ? Array.from(main.querySelectorAll('details[open]'), detail => detail.querySelector('summary')?.textContent) : [];
+  spaceView?.dispose();
+  spaceView = null;
   main.innerHTML = pageHeader(state.route, state.route === 'integrations' ? '<a class="button" href="#settings">Back to settings</a>' : '') + content;
   main.querySelectorAll('details').forEach(detail => { detail.open = opened.includes(detail.querySelector('summary')?.textContent); });
   state.renderedRoute = state.route;
   main.dataset.sourceMode = sourcePresentation().mode;
-  main.dataset.sourceMode = sourcePresentation().mode;
   if (state.route === 'overview') updateLiveOverviewFields();
   if (state.route === 'devices') setupDeviceFilter();
+  if (state.route === 'space' && !data.loading) spaceView = mountSpace(main, data, layout => api.post('/api/v1/space/layout', layout));
 }
 
 function renderOverview() {
@@ -304,15 +314,15 @@ function renderOverview() {
   const latest = currentLatest();
   const feature = latest && latest.features;
   const synthetic = source.mode === 'synthetic';
-  const nodeCount = state.health && Number.isFinite(state.health.nodes) ? state.health.nodes : null;
+  const nodeCount = !synthetic && state.health && Number.isFinite(state.health.nodes) ? state.health.nodes : null;
   const sourceBlock = '<section class="monitor-source"><div><h2 data-source-label>' + safe(source.label) + '</h2><p data-source-detail>' + safe(source.detail) + '</p></div><a class="button" href="' + (source.mode === 'auth' ? '#settings' : '#devices') + '">' + (source.mode === 'auth' ? 'Configure access' : 'View devices') + '</a></section>';
   const readings = '<section class="readings"><h2>Latest signal</h2><dl class="reading-list">' +
     '<div><dt>Motion label</dt><dd data-motion>' + safe(latest && latest.classification ? latest.classification.motion_level || '—' : '—') + '</dd></div>' +
     '<div><dt>Received signal strength</dt><dd data-rssi>' + safe(feature ? displayNumber(feature.mean_rssi, 1, ' dBm') : '—') + '</dd></div>' +
     '<div><dt>Signal variance</dt><dd data-variance>' + safe(feature ? displayNumber(feature.variance, 2) : '—') + '</dd></div>' +
     '<div><dt>Reporting nodes</dt><dd data-node-count>' + safe(nodeCount == null ? '—' : nodeCount) + '</dd></div>' +
-    '<div><dt>Last frame</dt><dd data-source-age>' + safe(currentAge() == null ? '—' : formatAge(currentAge())) + '</dd></div></dl><p class="section-note">' + (synthetic ? 'These readings are generated by the simulator.' : 'Signal features describe the radio channel; they do not locate a person.') + '</p></section>';
-  const steps = '<section class="setup-guide"><h2>' + (synthetic ? 'Connect your sensors' : 'Continue setup') + '</h2><p>' + (synthetic ? 'The interface is running in simulation mode. Use an ESP32 CSI source for measurements.' : 'Check input quality before capturing a room baseline.') + '</p><ol class="setup-steps">' +
+    '<div><dt>Last frame</dt><dd data-source-age>' + safe(currentAge() == null ? '—' : formatAge(currentAge())) + '</dd></div></dl><p class="section-note">' + (synthetic ? 'Synthetic input from this server is blocked. No measurements are displayed.' : 'Signal features describe the radio channel; they do not locate a person.') + '</p></section>';
+  const steps = '<section class="setup-guide"><h2>' + (synthetic ? 'Connect your sensors' : 'Continue setup') + '</h2><p>' + (synthetic ? 'Set the server source to esp32 and connect a CSI receiver.' : 'Check input quality before capturing a room baseline.') + '</p><ol class="setup-steps">' +
     '<li><a href="#devices"><strong>Check devices</strong><span>Confirm fresh CSI and synchronized nodes</span>' + icon('arrow-up-right') + '</a></li>' +
     '<li><a href="#calibration"><strong>Calibrate the room</strong><span>Bind sensors and capture a stable baseline</span>' + icon('arrow-up-right') + '</a></li>' +
     '<li><a href="#recordings"><strong>Record a sample</strong><span>Save labeled data for activity training</span>' + icon('arrow-up-right') + '</a></li></ol><a class="text-link" href="#help">Setup guide and measurement limits</a></section>';
@@ -583,17 +593,13 @@ function renderIntegrations(data) {
     '<div class="col-12">' + banner('The provider catalog currently describes limited capabilities. It does not add RF providers as CSI receivers or enable person localization.', 'warning') + '</div></div>';
 }
 
-function readLocalFlag(key) {
-  try { return localStorage.getItem(key) === 'true'; } catch { return false; }
-}
-
 function hasSavedToken() {
   try { return Boolean(localStorage.getItem(API_TOKEN_STORAGE_KEY)); } catch { return false; }
 }
 
 function renderSettings() {
   const source = state.health && state.health.source || 'Unavailable';
-  const simulated = readLocalFlag(SIM_FALLBACK_STORAGE_KEY);
+
   const hasToken = hasSavedToken();
   const summary = '<dl class="kv-list"><div class="kv-row"><dt>API origin</dt><dd class="mono">' + safe(window.location.origin) + '</dd></div>' +
     '<div class="kv-row"><dt>Backend</dt><dd>' + safe(state.info && state.info.backend || '—') + '</dd></div>' +
@@ -605,11 +611,8 @@ function renderSettings() {
     '<div class="form-actions"><button class="button button-primary" type="submit">Save token</button>' +
     (hasToken ? button('Clear token', 'token-clear', 'button-danger') : '') +
     button('Test API access', 'token-test', '') + '</div></form>';
-  const demoForm = '<form data-form="simulation-setting"><label class="check-row"><input type="checkbox" name="allow_simulation" ' +
-    (simulated ? 'checked' : '') + '><span><strong>Allow browser-generated fallback after repeated server connection failures</strong><small>Generated frames are marked synthetic and are not measurements. This does not replace a reachable server.</small></span></label>' +
-    '<div class="form-actions"><button class="button" type="submit">Save demo preference</button></div></form>';
   return '<div class="settings-content">' + card('API access', authForm, { subtitle: 'Only needed when this server requires a bearer token.' }) +
-    disclosure('Connection details', summary) + disclosure('Advanced: synthetic fallback', demoForm) +
+    disclosure('Connection details', summary) +
     '<section class="settings-links"><h2>Server configuration</h2><a class="button" href="#integrations">' + icon('plug') + 'Integrations</a><a class="text-link" href="#help">Setup guide and capabilities</a><p class="section-note">Provider credentials stay on the server. Keep the service bound to localhost unless you configure authenticated network access.</p></section></div>';
 
 }
@@ -617,8 +620,8 @@ function renderSettings() {
 function renderHelp() {
   const entries = [
     ['RSSI and CSI', 'RSSI is received signal strength. CSI is a richer per-subcarrier channel observation. The backend derives signal features from device input, but a Wi-Fi signal is not itself a person coordinate.'],
-    ['Synthetic data', 'A simulator produces generated frames for interface and pipeline checks. The source label and warning banner must remain visible; never cite synthetic output as a hardware measurement.'],
-    ['Spatial view', 'The current signal field is a normalized diagnostic grid in sample-index space. It is not a floor plan, building model, or measured position. Sensor position may be configured on the server, but coordinates are not included in the current UI API.'],
+    ['Real measurements only', 'Without hardware input, the server waits and the browser shows no readings. Query parameters and saved demo preferences cannot start a simulator. Synthetic frames from an older server are rejected.'],
+    ['Spatial view', 'Space shows operator-configured ESP32 and router positions in local metres, including negative X, Y and Z. These positions persist on the server. Routers are configured references, not discovered objects. CSI hotspots are signal diagnostics and never become person coordinates.'],
     ['Calibration', 'Room calibration stores a mean/variance baseline for a bound CSI grid. It requires 1,000 accepted frames over at least 10 minutes with a stable raw grid. This baseline does not enable accepted person localization or vital signs.'],
     ['Recordings and training', 'Recordings store frames received by the backend. A label in the recording name creates a candidate activity dataset. The Go trainer supports activity classification; file holdout results do not prove accuracy in another room.'],
     ['People and biometrics', 'The API explicitly reports person localization, validated multi-person pose, and calibrated vital signs as unavailable. Edge counts and signal classifications are not accepted person detections or medical measurements.']
@@ -653,7 +656,8 @@ async function refreshGlobal() {
     state.infoError = infoResult.reason;
   }
   if (latestResult.status === 'fulfilled') {
-    const latest = latestResult.value;
+    const payload = latestResult.value;
+    const latest = payload && (payload._simulated || payload.source_state === 'synthetic' || /simulat|synthetic|demo|replay/i.test(payload.source || '')) ? null : payload;
     state.latestError = null;
     if (latest && latest.status === 'stale') {
       state.latest = latest;
@@ -686,7 +690,7 @@ function rejectedMessage(results, index) {
 }
 
 async function loadRoute(route, options) {
-  if (!['devices', 'calibration', 'recordings', 'models', 'integrations'].includes(route)) return;
+  if (!['space', 'devices', 'calibration', 'recordings', 'models', 'integrations'].includes(route)) return;
   const quiet = Boolean(options && options.quiet);
   const requestId = ++state.pendingRouteRequest;
   if (!quiet) {
@@ -696,6 +700,15 @@ async function loadRoute(route, options) {
   const load = async paths => Promise.allSettled(paths.map(path => api.get(path)));
   let result;
   switch (route) {
+    case 'space': {
+      const responses = await load(['/api/v1/space/layout', '/api/v1/nodes']);
+      result = {
+        layout: fulfilled(responses, 0, {}).layout || null,
+        nodes: fulfilled(responses, 1, {}).nodes || [],
+        error: [rejectedMessage(responses, 0), rejectedMessage(responses, 1)].filter(Boolean).join(' · ')
+      };
+      break;
+    }
     case 'devices': {
       const responses = await load(['/api/v1/nodes', '/api/v1/mesh']);
       result = {
@@ -760,6 +773,10 @@ async function loadRoute(route, options) {
 
   if (requestId !== state.pendingRouteRequest || state.route !== route) return;
   state.page[route] = { ...result, loading: false };
+  if (quiet && route === 'space' && spaceView && !result.error) {
+    spaceView.update(state.page[route]);
+    return;
+  }
   if (!quiet || !isEditingForm()) renderPage();
 }
 
@@ -771,7 +788,7 @@ function isEditingForm() {
 
 function parseRoute() {
   const hash = window.location.hash.slice(1).toLowerCase();
-  const route = hash === 'space' ? 'overview' : hash;
+  const route = hash;
   return Object.prototype.hasOwnProperty.call(ROUTES, route) ? route : 'overview';
 }
 
@@ -952,14 +969,6 @@ async function submitForm(form) {
       apiService.setAuthToken(token);
       sensingService.reconnect();
       showToast('Token saved in this browser.', 'success');
-    } else if (formName === 'simulation-setting') {
-      try {
-        localStorage.setItem(SIM_FALLBACK_STORAGE_KEY, values.get('allow_simulation') ? 'true' : 'false');
-      } catch {
-        throw new Error('This browser does not allow local storage, so the preference was not saved.');
-      }
-      sensingService.reconnect();
-      showToast('Synthetic fallback preference saved.', 'success');
     }
   } catch (error) {
     showToast(error && error.message ? error.message : 'Could not save the requested change.', 'error');
@@ -1111,6 +1120,7 @@ function bindEvents() {
     if (frame && typeof frame === 'object') {
       state.socketLatest = frame;
       state.latest = frame;
+      spaceView?.measurement(frame);
     }
     state.socketState = sensingService.state;
     state.dataSource = sensingService.dataSource;

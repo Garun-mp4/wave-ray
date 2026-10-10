@@ -3,12 +3,10 @@ import { apiService } from './api.service.js';
 /**
  * Sensing WebSocket Service
  *
- * Manages the connection to the Python sensing WebSocket server
+ * Manages the connection to the Go sensing WebSocket server
  * (ws://localhost:8765) and provides a callback-based API for the UI.
  *
- * Falls back to simulated data only after MAX_RECONNECT_ATTEMPTS exhausted.
- * While reconnecting the service stays in "reconnecting" state and does NOT
- * emit simulated frames so the UI can clearly distinguish live vs. fallback data.
+ * Reconnects after outages without generating replacement measurements.
  */
 
 const SENSING_WS_PORT_BY_HTTP_PORT = {
@@ -32,44 +30,6 @@ export function buildSensingWsUrl(locationLike = (typeof window !== 'undefined' 
 const SENSING_WS_URL = buildSensingWsUrl();
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
 const MAX_RECONNECT_ATTEMPTS = 20;
-// Number of failed attempts that must occur before simulation starts.
-// This prevents the UI from flashing "SIMULATED" on a brief hiccup.
-const SIM_FALLBACK_AFTER_ATTEMPTS = 5;
-const SIMULATION_INTERVAL = 500; // ms
-
-export const SIM_FALLBACK_STORAGE_KEY = 'ruview-client-simulation';
-
-/**
- * Whether the client may invent sensing frames when the server is unreachable.
- *
- * Default **off**, deliberately. The generated frames are plausible — presence
- * derived from `Math.sin(t * 0.3)` crossing a fixed threshold produces a steady
- * absent/present_still alternation that reads exactly like a real classifier
- * struggling at its decision boundary. A reader with no reason to suspect the
- * server had dropped will diagnose the sensing pipeline, and be wrong. That is
- * not a hypothetical: it cost a full debugging session on 2026-08-28, chasing a
- * "flip-flop" that was this function all along while the server sat at a
- * perfectly steady presence=true.
- *
- * For an instrument, "no signal" is the honest reading and a useful one.
- * Synthetic motion is only appropriate for a demo, so it must be asked for:
- * `?simulate=1`, or `localStorage['ruview-client-simulation'] = 'true'`.
- *
- * Repository rule: never present synthetic output as measurement (CLAUDE.md).
- */
-function clientSimulationAllowed() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('simulate') === '1') return true;
-    if (params.get('simulate') === '0') return false;
-  } catch { /* no window/location — non-browser test context */ }
-  try {
-    return localStorage.getItem(SIM_FALLBACK_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 export class SensingService {
   constructor() {
     /** @type {WebSocket|null} */
@@ -78,7 +38,7 @@ export class SensingService {
     this._stateListeners = new Set();
     this._reconnectAttempt = 0;
     this._reconnectTimer = null;
-    this._simTimer = null;
+
     // Guards the await window inside `_connect()` (see the comment there).
     this._connectInFlight = false;
     // Bumped per connect attempt and by `stop()`; lets a socket recognise that
@@ -109,7 +69,7 @@ export class SensingService {
 
   // ---- Public API --------------------------------------------------------
 
-  /** Start the service (connect or simulate). */
+  /** Connect to the measurement stream. Outages never generate frames. */
   start() {
     void this._connect();
   }
@@ -238,7 +198,8 @@ export class SensingService {
     } catch (err) {
       console.warn('[Sensing] WebSocket constructor failed:', err.message);
       this._connectInFlight = false;
-      this._fallbackToSimulation();
+      this._setDataSource('unreachable');
+      this._scheduleReconnect();
       return;
     }
 
@@ -257,7 +218,7 @@ export class SensingService {
       opened = true;
       this._authRequired = null;
       this._reconnectAttempt = 0;
-      this._stopSimulation();
+
       this._setState('connected');
       // Don't assume "live" yet — wait for first frame's source field.
       // Fetch server status to determine actual data source immediately.
@@ -339,11 +300,6 @@ export class SensingService {
     if (this._reconnectTimer) return;
 
     if (this._reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-      if (clientSimulationAllowed()) {
-        console.warn('[Sensing] Max reconnect attempts (%d) reached, switching to simulation', MAX_RECONNECT_ATTEMPTS);
-        this._fallbackToSimulation();
-        return;
-      }
       // With simulation off there is nothing to give up *for*: keep retrying at
       // the ceiling delay so the UI recovers by itself when the server returns,
       // rather than requiring a hard refresh.
@@ -365,110 +321,6 @@ export class SensingService {
       void this._connect();
     }, delay);
 
-    // Only start simulation after several failed attempts so a brief hiccup
-    // does not immediately switch the UI to "SIMULATED DATA".
-    if (this._reconnectAttempt >= SIM_FALLBACK_AFTER_ATTEMPTS && this._state !== 'simulated') {
-      if (clientSimulationAllowed()) {
-        this._fallbackToSimulation();
-      } else {
-        // Say "the server is gone" instead of inventing a room.
-        this._setDataSource('unreachable');
-      }
-    }
-  }
-
-  // ---- Simulation fallback -----------------------------------------------
-
-  _fallbackToSimulation() {
-    if (!clientSimulationAllowed()) {
-      this._setDataSource('unreachable');
-      this._scheduleReconnect();
-      return;
-    }
-    this._setState('simulated');
-    this._setDataSource('simulated');
-    if (this._simTimer) return; // already running
-    console.info('[Sensing] Running in simulation mode');
-
-    this._simTimer = setInterval(() => {
-      const data = this._generateSimulatedData();
-      this._handleData(data);
-    }, SIMULATION_INTERVAL);
-  }
-
-  _stopSimulation() {
-    if (this._simTimer) {
-      clearInterval(this._simTimer);
-      this._simTimer = null;
-    }
-  }
-
-  _generateSimulatedData() {
-    const t = Date.now() / 1000;
-    const baseRssi = -45;
-    const variance = 1.5 + Math.sin(t * 0.1) * 1.0;
-    const motionBand = 0.05 + Math.abs(Math.sin(t * 0.3)) * 0.15;
-    const breathBand = 0.03 + Math.abs(Math.sin(t * 0.05)) * 0.08;
-    const isPresent = variance > 0.8;
-    const isActive = motionBand > 0.12;
-
-    // Generate signal field
-    const gridSize = 20;
-    const values = [];
-    for (let iz = 0; iz < gridSize; iz++) {
-      for (let ix = 0; ix < gridSize; ix++) {
-        const cx = gridSize / 2, cy = gridSize / 2;
-        const dist = Math.sqrt((ix - cx) ** 2 + (iz - cy) ** 2);
-        let v = Math.max(0, 1 - dist / (gridSize * 0.7)) * 0.3;
-        // Body blob
-        const bx = cx + 3 * Math.sin(t * 0.2);
-        const by = cy + 2 * Math.cos(t * 0.15);
-        const bodyDist = Math.sqrt((ix - bx) ** 2 + (iz - by) ** 2);
-        if (isPresent) {
-          v += Math.exp(-bodyDist * bodyDist / 8) * (0.3 + motionBand * 3);
-        }
-        values.push(Math.min(1, Math.max(0, v + Math.random() * 0.05)));
-      }
-    }
-
-    return {
-      type: 'sensing_update',
-      timestamp: t,
-      source: 'simulated',
-      // Explicit machine-readable marker so the UI can always detect simulated
-      // frames regardless of which code path produced them.
-      _simulated: true,
-      nodes: [{
-        node_id: 1,
-        rssi_dbm: baseRssi + Math.sin(t * 0.5) * 3,
-        position: [2, 0, 1.5],
-        amplitude: [],
-        subcarrier_count: 0,
-      }],
-      features: {
-        mean_rssi: baseRssi + Math.sin(t * 0.5) * 3,
-        variance,
-        std: Math.sqrt(variance),
-        motion_band_power: motionBand,
-        breathing_band_power: breathBand,
-        dominant_freq_hz: 0.3 + Math.sin(t * 0.02) * 0.1,
-        change_points: Math.floor(Math.random() * 3),
-        spectral_power: motionBand + breathBand + Math.random() * 0.1,
-        range: variance * 3,
-        iqr: variance * 1.5,
-        skewness: (Math.random() - 0.5) * 0.5,
-        kurtosis: Math.random() * 2,
-      },
-      classification: {
-        motion_level: isActive ? 'active' : (isPresent ? 'present_still' : 'absent'),
-        presence: isPresent,
-        confidence: isPresent ? 0.75 + Math.random() * 0.2 : 0.5 + Math.random() * 0.3,
-      },
-      signal_field: {
-        grid_size: [gridSize, 1, gridSize],
-        values,
-      },
-    };
   }
 
   // ---- Server source detection -------------------------------------------
@@ -481,7 +333,7 @@ export class SensingService {
     // ADR-295 (issue #1526): an unreachable or unauthorized status endpoint is
     // an *unknown* state — it must NOT collapse to "live". Prefer the canonical
     // `source_state` the server now returns; on any error stay conservative
-    // (server-simulated) until a real frame's `source` field promotes us.
+    // until a real frame's `source` field promotes us.
     //
     // Send the bearer token via `apiService.getHeaders()` so the probe can
     // actually succeed under the documented secure posture (API auth
@@ -493,10 +345,10 @@ export class SensingService {
         const json = await resp.json();
         this._applyServerSource(json.source, json.source_state);
       } else {
-        this._setDataSource('server-simulated');
+        this._setDataSource('unreachable');
       }
     } catch {
-      this._setDataSource('server-simulated');
+      this._setDataSource('unreachable');
     }
   }
 
@@ -506,25 +358,14 @@ export class SensingService {
    */
   _applyServerSource(rawSource, sourceState) {
     this._serverSource = rawSource;
-    // ADR-295: only the verified/unverified live states may show "live"; any
-    // synthetic/stale/disconnected state must not.
-    if (sourceState) {
-      if (sourceState === 'live_verified' || sourceState === 'live_unverified') {
-        this._setDataSource('live');
-      } else if (sourceState === 'synthetic') {
-        this._setDataSource('server-simulated');
-      } else {
-        this._setDataSource('server-simulated');
-      }
-      return;
-    }
-    if (rawSource === 'esp32' || rawSource === 'wifi' || rawSource === 'live') {
+    if (/simulat|synthetic|demo|replay/i.test(rawSource || '') || sourceState === 'synthetic') {
+      this._setDataSource('server-simulated');
+    } else if (sourceState === 'disconnected' || sourceState === 'offline' || sourceState === 'stale' || String(rawSource).endsWith(':offline')) {
+      this._setDataSource('reconnecting');
+    } else if (['esp32', 'wifi', 'live'].includes(rawSource) || sourceState === 'live_verified' || sourceState === 'live_unverified' || sourceState === 'connected') {
       this._setDataSource('live');
-    } else if (rawSource === 'simulated' || rawSource === 'simulate') {
-      this._setDataSource('server-simulated');
     } else {
-      // Unknown source — show as server-simulated to be safe
-      this._setDataSource('server-simulated');
+      this._setDataSource('reconnecting');
     }
   }
 
@@ -536,6 +377,12 @@ export class SensingService {
   // ---- Data handling -----------------------------------------------------
 
   _handleData(data) {
+    const frame = data?.data && typeof data.data === 'object' ? data.data : data;
+    if (!frame || frame._simulated || frame.source_state === 'synthetic' || /simulat|synthetic|replay|demo/i.test(frame.source || '')) {
+      this._lastMessage = null;
+      this._setDataSource('unreachable');
+      return;
+    }
     this._lastMessage = data;
 
     // Track the server's source field from each frame so the UI
@@ -605,7 +452,7 @@ export class SensingService {
   }
 
   _clearTimers() {
-    this._stopSimulation();
+
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;

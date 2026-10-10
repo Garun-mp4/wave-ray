@@ -135,3 +135,36 @@ test('reconnect() leaves auth-required and tries again', async () => {
   assert.equal(svc.state, 'connected');
   assert.equal(svc.authRequired, null);
 });
+
+test('legacy demo preference cannot generate frames during a prolonged outage', () => {
+  stored['ruview-client-simulation'] = 'true';
+  let count = 0;
+  svc.onData(() => count++);
+  svc._reconnectAttempt = 20;
+  svc._scheduleReconnect();
+  assert.equal(svc.dataSource, 'unreachable');
+  assert.equal(count, 0);
+  assert.equal(typeof svc._generateSimulatedData, 'undefined');
+  assert.ok(svc._reconnectTimer);
+});
+
+test('synthetic and wrapped synthetic frames never reach measurement listeners', () => {
+  const received = [];
+  svc.onData(frame => received.push(frame));
+  for (const frame of [{source:'simulate'}, {source:'esp32',_simulated:true}, {source:'esp32',source_state:'synthetic'}]) {
+    svc._handleData(frame);
+    svc._handleData({data:frame});
+  }
+  assert.equal(received.length, 0);
+  assert.equal(svc.lastMessage, undefined);
+  svc._handleData({source:'esp32',features:{mean_rssi:-54}});
+  assert.equal(received.length, 1);
+  assert.deepEqual(svc.getRssiHistory(), [-54]);
+});
+
+test('a waiting physical source is not mislabeled as simulation', () => {
+  svc._applyServerSource('esp32:offline','disconnected');
+  assert.equal(svc.dataSource,'reconnecting');
+  svc._applyServerSource('esp32','connected');
+  assert.equal(svc.dataSource,'live');
+});

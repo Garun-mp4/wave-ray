@@ -41,16 +41,25 @@ text in both themes and use #4b57c8 on hover to maintain normal-text contrast.
 
 ## Information architecture
 
-Primary navigation: Monitor, Devices, Calibration, Recordings, Models, Settings.
+Primary navigation: Monitor, Space, Devices, Calibration, Recordings, Models, Settings.
 Help is secondary. Integrations is reached through Settings, with a return link.
 Monitor leads with signal readings and a device → calibration → recording path.
 Diagnostics, mesh timing, CSI/trust details and training parameters use native
 keyboard-operable disclosure. Preserve expanded sections across data refreshes.
 
 Retire synthetic Observatory/Pose Fusion entry points with redirects and a
-no-JavaScript fallback link. Preserve old #space bookmarks by opening Monitor.
+no-JavaScript fallback link. #space shows installation geometry.
 Do not show person locations, object tracking, floors, pose or biometrics without
 an accepted backend payload and hardware evidence. Sample grids are diagnostics.
+
+Space uses the shared panel surface, Inter labels and violet selection/live
+indicators. No floor, grid plane, glow, animated RF range or generated objects.
+Signed installation-local coordinates use Y as vertical. Device markers are
+schematic symbols, not physical device dimensions. Configured routers do not
+imply discovered APs or measured coverage. Pointer/keyboard orbit, pan and zoom
+redraw on demand; there is no perpetual animation. A text device list provides
+the same positions and states as the canvas. Layout editing collapses into the
+inspector and stacks beneath the viewport on narrow screens.
 
 ## Themes and access
 

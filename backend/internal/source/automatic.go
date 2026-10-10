@@ -3,7 +3,6 @@ package source
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 	"time"
 
@@ -13,8 +12,7 @@ import (
 	"github.com/ruvnet/ruview/backend/internal/state"
 )
 
-// Automatic runs clearly labeled synthetic data until the first valid live
-// ESP32 packet arrives, then stops simulation and promotes the source.
+// Automatic waits without producing data until a real source arrives.
 type Automatic struct {
 	store         *state.Store
 	cancel        context.CancelFunc
@@ -38,21 +36,17 @@ func StartAutomatic(parent context.Context, store *state.Store, interval time.Du
 	if parent == nil || store == nil {
 		return nil, errors.New("automatic source requires a context and state store")
 	}
-	simCtx, cancel := context.WithCancel(parent)
+	waitCtx, cancel := context.WithCancel(parent)
 	automatic := &Automatic{
 		store: store, cancel: cancel, done: make(chan struct{}),
 		transition: make(chan struct{}), state: automaticRunning,
 	}
-	store.SetSource("simulate")
+	store.SetSource("auto")
 	go func() {
 		defer close(automatic.done)
-		runSimulation(simCtx, store, interval)
+		<-waitCtx.Done()
 	}()
 	return automatic, nil
-}
-
-func StartSimulation(ctx context.Context, store *state.Store, interval time.Duration) {
-	go runSimulation(ctx, store, interval)
 }
 
 func (a *Automatic) IngestCSI(frame protocol.CSIFrame) {
@@ -157,34 +151,4 @@ func (a *Automatic) applySource(source string, ingest func()) {
 	}
 	a.currentSource = source
 	ingest()
-}
-
-func runSimulation(ctx context.Context, store *state.Store, interval time.Duration) {
-	if interval <= 0 {
-		interval = 100 * time.Millisecond
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	var sequence uint32
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-ticker.C:
-			sequence++
-			amplitude := make([]float64, 56)
-			phase := make([]float64, 56)
-			seconds := float64(now.UnixNano()) / float64(time.Second)
-			for i := range amplitude {
-				amplitude[i] = 20 + float64(i%9)*0.7 + 2.5*math.Sin(2*math.Pi*0.28*seconds+float64(i)*0.05)
-				phase[i] = math.Sin(2*math.Pi*1.2*seconds + float64(i)*0.03)
-			}
-			store.IngestCSI(protocol.CSIFrame{
-				Source: "simulate",
-				NodeID: 1, Antennas: 1, Subcarriers: 56, FrequencyMHz: 2412,
-				Sequence: sequence, RSSIDBm: -52, NoiseFloor: -92,
-				Amplitude: amplitude, Phase: phase,
-			})
-		}
-	}
 }

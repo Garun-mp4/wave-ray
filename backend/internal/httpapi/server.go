@@ -75,6 +75,9 @@ type Server struct {
 	closed          bool
 	closeOnce       sync.Once
 	fieldErr        error
+	spaceMu         sync.Mutex
+	spaceLayout     spaceLayout
+	spaceErr        error
 }
 
 func New(cfg config.Config, store *state.Store, tickets *security.TicketStore, hosts *security.HostAllowlist, models *model.Registry, recordings *recording.Manager, logger *slog.Logger) *Server {
@@ -96,6 +99,7 @@ func New(cfg config.Config, store *state.Store, tickets *security.TicketStore, h
 	}
 	fieldSurface, fieldErr := rufield.New(cfg.DataDir)
 	server := &Server{Config: cfg, State: store, Tickets: tickets, Hosts: hosts, Hub: store.Hub(), Models: models, Recordings: recordings, EdgeRegistry: edgeRegistry, Vendors: vendor.NewStore(), Field: fieldSurface, fieldErr: fieldErr, Logger: logger}
+	server.initSpace()
 	if fieldErr != nil {
 		logger.Error("RuField signing surface is unavailable", "reason", "signing_key_initialization_failed")
 	}
@@ -303,6 +307,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/sensing/latest", s.latest)
 	mux.HandleFunc("GET /api/v1/spatial-fusion/status", s.spatialFusionStatus)
 	mux.HandleFunc("GET /api/v1/nodes", s.nodes)
+	mux.HandleFunc("GET /api/v1/space/layout", s.getSpace)
+	mux.HandleFunc("POST /api/v1/space/layout", s.saveSpace)
 	mux.HandleFunc("GET /api/v1/pose/current", s.poseCurrent)
 	mux.HandleFunc("GET /api/v1/pose/status", s.poseCurrent)
 	mux.HandleFunc("GET /api/v1/pose/frames", s.poseFrames)

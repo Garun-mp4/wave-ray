@@ -21,16 +21,9 @@ func TestAutomaticSourcePromotesAndStopsSimulationOnLiveFrame(t *testing.T) {
 	}
 	defer automatic.Stop()
 
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		health := store.Health()
-		if health["source"] == "simulate" && health["frames_received"].(uint64) > 0 {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if health := store.Health(); health["source"] != "simulate" || health["frames_received"].(uint64) == 0 {
-		t.Fatalf("automatic mode did not expose its synthetic fallback: %+v", health)
+	time.Sleep(20 * time.Millisecond)
+	if health := store.Health(); health["source"] != "auto:offline" || health["frames_received"].(uint64) != 0 {
+		t.Fatalf("automatic mode generated data while waiting for real input: %+v", health)
 	}
 
 	automatic.IngestCSI(protocol.CSIFrame{
@@ -73,15 +66,9 @@ func TestSyncBeaconDoesNotPromoteSyntheticSource(t *testing.T) {
 		Flags:   protocol.SyncFlags{IsLeader: true, IsValid: true},
 		LocalUS: 1_000_000, EpochUS: 1_000_000,
 	})
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if store.Health()["frames_received"].(uint64) > 0 {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
+	time.Sleep(20 * time.Millisecond)
 	health := store.Health()
-	if health["source"] != "simulate" || health["source_state"] != "synthetic" || health["frames_received"].(uint64) == 0 {
+	if health["source"] != "auto:offline" || health["frames_received"].(uint64) != 0 {
 		t.Fatalf("a sync beacon incorrectly promoted the source: %+v", health)
 	}
 	if health["sync_packets"].(uint64) != 1 {
@@ -135,10 +122,7 @@ func TestVendorCSIPromotesAndStopsSyntheticFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer automatic.Stop()
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) && store.Health()["frames_received"].(uint64) == 0 {
-		time.Sleep(time.Millisecond)
-	}
+	time.Sleep(20 * time.Millisecond)
 	mean, peak := float32(12), float32(16)
 	automatic.IngestVendorCSI(csivendor.Snapshot{EventType: "mediatek_csi", Source: "mediatek:physical-unvalidated", ElementCount: 1, MeanAmplitude: &mean, PeakAmplitude: &peak})
 	health := store.Health()
