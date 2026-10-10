@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Wave Ray — логотип</title>
+  <link rel="icon" href="../workspace/favicon.svg?v=2" type="image/svg+xml">
+  <style>
+    @font-face { font-family:Inter; src:url('../workspace/fonts/InterVariable.woff2'); font-weight:100 900; font-display:swap; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:14px/1.6 Inter,sans-serif; background:#f7f8f8; color:#08090a; }
+    main { max-width:1040px; margin:auto; padding:40px 24px; }
+    h1 { font-size:32px; font-weight:590; letter-spacing:-.03em; margin:20px 0 8px; }
+    p { max-width:70ch; color:#5a5f6b; }
+    a { color:#4b57c8; text-underline-offset:3px; }
+    a:focus-visible { outline:2px solid #5e6ad2; outline-offset:4px; }
+    ul { list-style:none; padding:0; margin:32px 0; }
+    li { display:grid; grid-template-columns:220px 1fr auto; align-items:center; gap:24px; padding:20px 0; border-top:1px solid #d6d7db; }
+    li strong,li span { display:block; }
+    li span { color:#5a5f6b; font-size:12px; }
+    .preview { height:100px; border:1px solid #e8e9eb; border-radius:8px; display:grid; place-items:center; background:white; }
+    .preview.dark { background:#0f1011; }
+    .preview img { max-width:196px; max-height:80px; width:auto; height:auto; }
+    @media(max-width:600px) { li { grid-template-columns:1fr; gap:12px; } .preview { height:128px; } .preview img { max-width:90%; max-height:104px; } }
+  </style>
+</head>
+<body><main>
+  <a href="../#overview">Открыть Wave Ray</a>
+  <h1>Логотип Wave Ray</h1>
+  <p>Утверждённый вариант «Пересечение сигналов». Тёмный знак используйте на светлом фоне, светлый — на тёмном. SVG подходит для интерфейса и печати; PNG — для документов и публикаций.</p>
+  <a href="logo.svg" download="wave-ray-logo.svg">Скачать исходный SVG</a>
+  <ul id="exports"></ul>
+  <script>
+    const files = [
+      ['mark-dark-1024','Знак · тёмный',1024,1024,true,false],
+      ['mark-light-1024','Знак · светлый',1024,1024,true,true],
+      ['mark-accent-1024','Знак · акцентный',1024,1024,true,false],
+      ['wordmark-dark-1200','С надписью · тёмный',1200,256,true,false],
+      ['wordmark-light-1200','С надписью · светлый',1200,256,true,true],
+      ['wordmark-on-light-1200','Светлая плашка',1200,256,false,false],
+      ['wordmark-on-dark-1200','Тёмная плашка',1200,256,false,true],
+      ['favicon-32','Favicon',32,32,false,true],
+      ['apple-touch-icon-180','Apple Touch',180,180,false,true],
+      ['app-icon-192','Приложение · 192',192,192,false,true],
+      ['app-icon-512','Приложение · 512',512,512,false,true],
+      ['app-icon-maskable-512','Приложение · maskable',512,512,false,true]
+    ];
+    document.getElementById('exports').innerHTML = files.map(([name,label,w,h,transparent,dark]) =>
+      '<li><div class="preview'+(dark?' dark':'')+'"><img src="png/'+name+'.png" alt="Wave Ray — '+label+'" width="'+w+'" height="'+h+'"></div><div><strong>'+label+'</strong><span>'+w+' × '+h+' · '+(transparent?'прозрачный фон':'непрозрачный фон')+'</span></div><a href="png/'+name+'.png" download>Скачать PNG</a></li>'
+    ).join('');
+  </script>
+  <noscript>PNG-файлы доступны в папке ui/brand/png проекта; для просмотра списка загрузок включите JavaScript.</noscript>
+</main></body>
+</html>

@@ -111,7 +111,7 @@ svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColo
   color: var(--color-accent-hover);
 }
 
-.brand-mark svg { width: 18px; height: 18px; }
+.brand-mark svg { width: 24px; height: 24px; }
 .brand-name { font-size: 14px; font-weight: 510; letter-spacing: 0; }
 .brand-subtitle { display: block; margin-top: 1px; color: var(--text-muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
 

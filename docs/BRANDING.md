@@ -15,5 +15,23 @@ URLs, ADRs and upstream documentation retain their original attribution.
 `docs/upstream/RuView-README.md` preserves the original root README; it is not the
 capability description of Wave Ray.
 
-The logo concepts at `/ui/brand/concepts.html` are proposals, not approved assets.
-The existing application symbol remains until a concept is selected.
+## Approved logo
+
+The approved mark is **Signal intersection** (`ui/brand/logo.svg`), selected by
+the user on 10 October 2026. Its paths match the approved intersection concept.
+Use the complete mark without glows, gradients or additional arcs.
+
+The interface uses the SVG at 24 px; the favicon adapts to the browser theme.
+PNG exports are in `ui/brand/png/` and downloadable at `/ui/brand/`.
+Transparent dark-ink files are for light surfaces, and light-ink files for dark
+surfaces. Wordmarks use bundled Inter Variable at weight 590.
+
+Application icons have a solid design-system background. The maskable icon keeps
+all artwork within the central safe circle (radius 40% of the canvas). Apple
+Touch icons have no baked rounded corners.
+
+To reproduce PNGs, start the app and run the existing Playwright CLI from the
+project root: `playwright-cli open http://localhost:3000/ui/`, followed by
+`playwright-cli run-code --filename=ui/brand/export-logos.js`.
+No new dependency or host Go installation is required. Other concepts remain
+as design history.

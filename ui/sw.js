@@ -2,7 +2,7 @@
 // Strategy: Network-first for API calls, Cache-first for static assets
 
 // Bumped when shared and lab UI styles change so clients leave old offline assets.
-const CACHE_NAME = 'wave-ray-v1';
+const CACHE_NAME = 'wave-ray-v2';
 
 // Requests whose response depends on the caller's credentials. These must never
 // be served from the Cache API.
@@ -27,12 +27,18 @@ const SHELL_ASSETS = [
   '/ui/workspace/api.js',
   '/ui/workspace/space.js?v=3',
   '/ui/workspace/view-model.js',
-  '/ui/workspace/workspace.css?v=12',
+  '/ui/workspace/workspace.css?v=13',
   '/ui/workspace/design-tokens.css?v=7',
   '/ui/workspace/theme.js?v=2',
   '/ui/workspace/fonts/InterVariable.woff2',
   '/ui/workspace/icons.svg',
-  '/ui/workspace/favicon.svg',
+  '/ui/workspace/favicon.svg?v=2',
+  '/ui/brand/logo.svg',
+  '/ui/brand/png/favicon-32.png',
+  '/ui/brand/png/apple-touch-icon-180.png',
+  '/ui/brand/png/app-icon-192.png',
+  '/ui/brand/png/app-icon-512.png',
+  '/ui/brand/png/app-icon-maskable-512.png',
   '/ui/services/api.service.js',
   '/ui/services/sensing.service.js?v=2',
   '/ui/services/ws-ticket.js',

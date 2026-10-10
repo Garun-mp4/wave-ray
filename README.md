@@ -38,7 +38,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 - [Go backend и настройки](backend/README.md)
 - [Интерфейс](ui/README.md)
-- [Идеи логотипа](ui/brand/concepts.html)
+- [Логотип и PNG-варианты](ui/brand/index.html)
 - [Границы переименования и совместимость](docs/BRANDING.md)
 
 ## Происхождение и лицензии

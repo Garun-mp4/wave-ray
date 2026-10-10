@@ -261,7 +261,7 @@ test('the Go operations shell precaches its current UI modules and registers the
     "'/ui/index.html'",
     "'/ui/manifest.json'",
     "'/ui/workspace/app.js?v=15'",
-    "'/ui/workspace/workspace.css?v=12'",
+    "'/ui/workspace/workspace.css?v=13'",
     "'/ui/workspace/design-tokens.css?v=7'",
     "'/ui/workspace/theme.js?v=2'",
     "'/ui/workspace/fonts/InterVariable.woff2'",
@@ -275,5 +275,5 @@ test('the Go operations shell precaches its current UI modules and registers the
 
   const appSource = readFileSync(fileURLToPath(new URL('./workspace/app.js', import.meta.url)), 'utf8');
   assert.match(appSource, /navigator\.serviceWorker\.register\(new URL\('\.\.\/sw\.js', import\.meta\.url\)\)/);
-  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]wave-ray-v1['"]/);
+  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]wave-ray-v2['"]/);
 });
