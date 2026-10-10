@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import * as viewModel from './view-model.js';
 
 const source = readFileSync(new URL('./app.js', import.meta.url), 'utf8')
+  .replaceAll('\r\n', '\n')
   .replace(/^import[\s\S]*?from [^;]+;\n/gm, '')
   .replaceAll('import.meta.url', "'http://localhost:3000/ui/workspace/app.js'")
   .replace(/init\(\)\.catch\([\s\S]*$/, '');
