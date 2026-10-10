@@ -1,6 +1,6 @@
-# RuView frontend product context
+# Wave Ray frontend product context
 
-RuView is a local operator console for inspecting the sensing server, connected
+Wave Ray is a local operator console for inspecting the sensing server, connected
 Wi-Fi/CSI devices, calibration state, recordings, and the activity-model
 workflow. The primary user is a technically capable operator or researcher
 setting up and evaluating a local installation.

@@ -270,7 +270,7 @@ function paintSignalField(canvas, payload) {
 
 function renderShell(route) {
   state.route = route;
-  document.title = 'RuView — ' + ROUTES[route].title;
+  document.title = 'Wave Ray — ' + ROUTES[route].title;
   const heading = document.getElementById('breadcrumb-current');
   if (heading) heading.textContent = ROUTES[route].title;
   document.querySelectorAll('[data-route]').forEach(link => {
@@ -904,7 +904,7 @@ function selectedSourceNode(form, nodeIDs) {
 
 async function makeBindingDigest(room, nodeIDs) {
   if (!globalThis.crypto || !globalThis.crypto.subtle || !globalThis.TextEncoder) {
-    throw new Error('This browser cannot create a secure room-binding digest. Open RuView on localhost or HTTPS.');
+    throw new Error('This browser cannot create a secure room-binding digest. Open Wave Ray on localhost or HTTPS.');
   }
   const canonical = JSON.stringify({
     schema: 'ruview-room-binding-v1',
@@ -988,7 +988,7 @@ async function handleAction(target) {
     return;
   }
   if (action === 'token-clear') {
-    if (!window.confirm('Clear the saved RuView API token from this browser?')) return;
+    if (!window.confirm('Clear the saved Wave Ray API token from this browser?')) return;
     await performAction(target, async () => {
       localStorage.removeItem(API_TOKEN_STORAGE_KEY);
       apiService.setAuthToken(null);
@@ -1137,7 +1137,7 @@ function bindEvents() {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register(new URL('../sw.js', import.meta.url))
-    .catch(error => console.warn('RuView offline shell registration failed:', error));
+    .catch(error => console.warn('Wave Ray offline shell registration failed:', error));
 }
 async function init() {
   registerServiceWorker();
@@ -1154,6 +1154,6 @@ async function init() {
 }
 
 init().catch(error => {
-  console.error('RuView workspace failed to initialize:', error);
+  console.error('Wave Ray workspace failed to initialize:', error);
   main.innerHTML = pageHeader('overview', '') + '<div class="inline-error">The workspace could not initialize. Refresh the page and inspect the browser console.</div>';
 });

@@ -6,11 +6,11 @@ import (
 )
 
 func TestBuildServiceAdvertisesOnlySafeInstallationMetadata(t *testing.T) {
-	service, err := BuildService("RuView Installation", "home-lab_1", 8080)
+	service, err := BuildService("Wave Ray Installation", "home-lab_1", 8080)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if service.ServiceName() != "_ruview._tcp.local" || service.FullName() != "RuView Installation._ruview._tcp.local" || service.HostName() != "ruview-home-lab-1.local" || service.Port != 8080 {
+	if service.ServiceName() != "_ruview._tcp.local" || service.FullName() != "Wave Ray Installation._ruview._tcp.local" || service.HostName() != "ruview-home-lab-1.local" || service.Port != 8080 {
 		t.Fatalf("unexpected service record: %+v", service)
 	}
 	if len(service.TXT) != 3 || service.TXT[0] != "schema="+Schema || service.TXT[1] != "tls=0" || service.TXT[2] != "installation=home-lab_1" {
@@ -31,9 +31,9 @@ func TestBuildServiceRejectsInvalidMetadata(t *testing.T) {
 		port                 uint16
 	}{
 		{"", "home", 8080},
-		{"RuView", "home\nsecret", 8080},
-		{"RuView", strings.Repeat("a", 129), 8080},
-		{"RuView", "home", 0},
+		{"Wave Ray", "home\nsecret", 8080},
+		{"Wave Ray", strings.Repeat("a", 129), 8080},
+		{"Wave Ray", "home", 0},
 		{strings.Repeat("a", 64), "home", 8080},
 	} {
 		if _, err := BuildService(test.name, test.installationID, test.port); err == nil {
@@ -43,7 +43,7 @@ func TestBuildServiceRejectsInvalidMetadata(t *testing.T) {
 }
 
 func TestShouldAdvertiseSkipsLoopbackAndExplicitDisable(t *testing.T) {
-	base := Settings{BindAddress: "0.0.0.0", HTTPPort: 8080, InstallationID: "home", InstallationName: "RuView"}
+	base := Settings{BindAddress: "0.0.0.0", HTTPPort: 8080, InstallationID: "home", InstallationName: "Wave Ray"}
 	if !ShouldAdvertise(base) {
 		t.Fatal("wildcard listener should be discoverable")
 	}

@@ -1,8 +1,8 @@
-// RuView Service Worker - Offline caching for the dashboard shell
+// Wave Ray Service Worker - Offline caching for the dashboard shell
 // Strategy: Network-first for API calls, Cache-first for static assets
 
 // Bumped when shared and lab UI styles change so clients leave old offline assets.
-const CACHE_NAME = 'ruview-v24';
+const CACHE_NAME = 'wave-ray-v1';
 
 // Requests whose response depends on the caller's credentials. These must never
 // be served from the Cache API.
@@ -23,7 +23,7 @@ const SHELL_ASSETS = [
   '/ui/',
   '/ui/index.html',
   '/ui/manifest.json',
-  '/ui/workspace/app.js?v=14',
+  '/ui/workspace/app.js?v=15',
   '/ui/workspace/api.js',
   '/ui/workspace/space.js?v=3',
   '/ui/workspace/view-model.js',
@@ -128,7 +128,7 @@ async function navigationFirst(request) {
   } catch {
     const cached = await caches.match(url.toString());
     if (cached) return cached;
-    return new Response('Offline. Start the RuView server and reload.', { status: 503 });
+    return new Response('Offline. Start the Wave Ray server and reload.', { status: 503 });
   }
 }
 

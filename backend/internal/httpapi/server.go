@@ -164,7 +164,7 @@ func (s *Server) Close() {
 		s.serviceWG.Wait()
 		if s.Discovery != nil {
 			if err := s.Discovery.Close(); err != nil {
-				s.Logger.Warn("RuView local discovery shutdown failed", "reason", "advertiser_shutdown_failed")
+				s.Logger.Warn("Wave Ray local discovery shutdown failed", "reason", "advertiser_shutdown_failed")
 			}
 		}
 		if s.Field != nil {
@@ -237,10 +237,10 @@ func (s *Server) Start(ctx context.Context) error {
 	if discovery.ShouldAdvertise(mdnsSettings) {
 		advertiser, discoveryErr := discovery.Start(runCtx, mdnsSettings)
 		if discoveryErr != nil {
-			s.Logger.Warn("RuView local discovery unavailable; manual origin remains usable", "reason", "advertisement_unavailable")
+			s.Logger.Warn("Wave Ray local discovery unavailable; manual origin remains usable", "reason", "advertisement_unavailable")
 		} else if advertiser != nil {
 			s.Discovery = advertiser
-			s.Logger.Info("RuView local discovery advertised", "port", s.Config.HTTPPort)
+			s.Logger.Info("Wave Ray local discovery advertised", "port", s.Config.HTTPPort)
 		}
 	}
 
@@ -393,7 +393,7 @@ func (s *Server) root(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name": "RuView Wi-Fi sensing backend", "backend": "go", "version": serverVersion,
+		"name": "Wave Ray Wi-Fi sensing backend", "backend": "go", "version": serverVersion,
 		"ui": "/ui/", "health": "/health/ready", "api": "/api/v1/info",
 	})
 }
@@ -443,7 +443,7 @@ func (s *Server) healthSystem(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) healthVersion(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"version": serverVersion, "name": "wifi-densepose-sensing-server", "backend": "go"})
+	writeJSON(w, http.StatusOK, map[string]any{"version": serverVersion, "name": "Wave Ray", "backend": "go"})
 }
 
 func (s *Server) healthMetrics(w http.ResponseWriter, _ *http.Request) {

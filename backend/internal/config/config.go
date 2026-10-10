@@ -133,7 +133,7 @@ func defaults(getenv func(string) string) (Config, error) {
 		EdgeRegistryTTL:      edgeRegistryTTL,
 		NoMDNS:               noMDNS,
 		InstallationID:       envOr(getenv, "RUVIEW_INSTALLATION_ID", "installation"),
-		InstallationName:     envOr(getenv, "RUVIEW_INSTALLATION_NAME", "RuView Installation"),
+		InstallationName:     envOr(getenv, "RUVIEW_INSTALLATION_NAME", "Wave Ray Installation"),
 	}, nil
 }
 
@@ -215,7 +215,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	fs.StringVar(&cfg.EdgeRegistryURL, "edge-registry-url", cfg.EdgeRegistryURL, "edge registry URL")
 	fs.Uint64Var(&cfg.EdgeRegistryTTL, "edge-registry-ttl-secs", cfg.EdgeRegistryTTL, "edge registry cache TTL in seconds")
 	fs.BoolVar(&cfg.NoEdgeRegistry, "no-edge-registry", cfg.NoEdgeRegistry, "disable remote edge registry lookup")
-	fs.BoolVar(&cfg.NoMDNS, "no-mdns", cfg.NoMDNS, "disable local RuView service discovery")
+	fs.BoolVar(&cfg.NoMDNS, "no-mdns", cfg.NoMDNS, "disable local Wave Ray service discovery")
 	fs.StringVar(&cfg.InstallationID, "installation-id", cfg.InstallationID, "stable, non-secret local discovery identifier")
 	fs.StringVar(&cfg.InstallationName, "installation-name", cfg.InstallationName, "human-readable local discovery service name")
 	if err := fs.Parse(args); err != nil {

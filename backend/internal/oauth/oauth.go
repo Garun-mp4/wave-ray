@@ -1,4 +1,4 @@
-// Package oauth implements RuView's Cognitum access-token verification and
+// Package oauth implements Wave Ray's Cognitum access-token verification and
 // server-side browser sign-in. It intentionally uses only the Go standard
 // library so runtime dependencies remain inside the backend container.
 package oauth

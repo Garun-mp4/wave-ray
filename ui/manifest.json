@@ -1,6 +1,6 @@
 {
-  "name": "RuView Sensing Operations",
-  "short_name": "RuView",
+  "name": "Wave Ray Sensing Operations",
+  "short_name": "Wave Ray",
   "description": "Local operations console for inspecting Wi-Fi/CSI sources, devices, signal data, recordings, and supported activity models.",
   "start_url": "/ui/",
   "display": "standalone",

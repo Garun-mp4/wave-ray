@@ -1,4 +1,4 @@
-# RuView interface design contract
+# Wave Ray interface design contract
 
 ## Authority
 

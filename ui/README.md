@@ -1,4 +1,4 @@
-# RuView operations UI
+# Wave Ray operations UI
 
 Open `http://localhost:3000/ui/`. The Go backend serves native HTML, CSS and
 JavaScript modules. Running the frontend requires no Node packages or build service.

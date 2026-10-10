@@ -53,7 +53,7 @@ func BuildActivityRVF(id string, trained *adaptive.Model) ([]byte, error) {
 		ValidationSplit: trained.ValidationSplit,
 	}
 	manifest, err := json.Marshal(map[string]any{
-		"model_id": id, "version": "1.0.0", "description": "RuView supervised activity classifier",
+		"model_id": id, "version": "1.0.0", "description": "Wave Ray supervised activity classifier",
 		"created_at": time.Now().UTC().Format(time.RFC3339Nano), "inference": metadata,
 	})
 	if err != nil {

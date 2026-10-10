@@ -252,7 +252,7 @@ test('the cache name is bumped so clients holding the poisoned v1 evict it', () 
   // already ran the old worker hold a signed-out /oauth/status in `ruview-v1`;
   // only a name change removes it for them.
   assert.ok(!/['"]ruview-v1['"]/.test(SW_SOURCE), 'CACHE_NAME must not still be ruview-v1');
-  assert.ok(/CACHE_NAME\s*=\s*['"]ruview-v(?:[2-9]|[1-9]\d+)/.test(SW_SOURCE));
+  assert.ok(/CACHE_NAME\s*=\s*['"]wave-ray-v\d+/.test(SW_SOURCE));
 });
 
 test('the Go operations shell precaches its current UI modules and registers the worker', () => {
@@ -260,7 +260,7 @@ test('the Go operations shell precaches its current UI modules and registers the
     "'/ui/'",
     "'/ui/index.html'",
     "'/ui/manifest.json'",
-    "'/ui/workspace/app.js?v=14'",
+    "'/ui/workspace/app.js?v=15'",
     "'/ui/workspace/workspace.css?v=12'",
     "'/ui/workspace/design-tokens.css?v=7'",
     "'/ui/workspace/theme.js?v=2'",
@@ -275,5 +275,5 @@ test('the Go operations shell precaches its current UI modules and registers the
 
   const appSource = readFileSync(fileURLToPath(new URL('./workspace/app.js', import.meta.url)), 'utf8');
   assert.match(appSource, /navigator\.serviceWorker\.register\(new URL\('\.\.\/sw\.js', import\.meta\.url\)\)/);
-  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]ruview-v24['"]/);
+  assert.match(SW_SOURCE, /CACHE_NAME\s*=\s*['"]wave-ray-v1['"]/);
 });

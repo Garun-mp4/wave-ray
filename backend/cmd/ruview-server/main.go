@@ -30,7 +30,7 @@ import (
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		slog.Error("RuView backend stopped", "error", err)
+		slog.Error("Wave Ray backend stopped", "error", err)
 		os.Exit(1)
 	}
 }

@@ -16,7 +16,7 @@ func TestLoadDefaultsLoopback(t *testing.T) {
 	if cfg.EdgeRegistryURL != DefaultEdgeRegistryURL || cfg.EdgeRegistryTTL != DefaultEdgeRegistryTTLSecond {
 		t.Fatalf("unexpected edge registry defaults: %+v", cfg)
 	}
-	if cfg.NoMDNS || cfg.InstallationID != "installation" || cfg.InstallationName != "RuView Installation" {
+	if cfg.NoMDNS || cfg.InstallationID != "installation" || cfg.InstallationName != "Wave Ray Installation" {
 		t.Fatalf("unexpected discovery defaults: %+v", cfg)
 	}
 }
@@ -77,13 +77,13 @@ func TestInstallationDiscoveryConfigurationIsBounded(t *testing.T) {
 		return map[string]string{
 			"RUVIEW_NO_MDNS":           "false",
 			"RUVIEW_INSTALLATION_ID":   "home-lab_1",
-			"RUVIEW_INSTALLATION_NAME": "RuView upstairs",
+			"RUVIEW_INSTALLATION_NAME": "Wave Ray upstairs",
 		}[key]
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.NoMDNS || cfg.InstallationID != "home-lab_1" || cfg.InstallationName != "RuView upstairs" {
+	if cfg.NoMDNS || cfg.InstallationID != "home-lab_1" || cfg.InstallationName != "Wave Ray upstairs" {
 		t.Fatalf("discovery settings were not applied: %+v", cfg)
 	}
 	for name, value := range map[string]string{

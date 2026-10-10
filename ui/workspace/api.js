@@ -40,7 +40,7 @@ export async function request(path, options = {}) {
   try {
     response = await fetch(url, init);
   } catch {
-    throw new WorkspaceApiError('Cannot reach the RuView server. Check that it is running and try again.', 0, 'network_unavailable');
+    throw new WorkspaceApiError('Cannot reach the Wave Ray server. Check that it is running and try again.', 0, 'network_unavailable');
   }
 
   const contentType = response.headers.get('content-type') || '';

@@ -422,8 +422,8 @@ func (p *Publisher) discovery(nodeID, entity string) (DiscoveryConfig, string, e
 		AvailabilityMode: "all", PayloadOn: payloadOn, PayloadOff: payloadOff,
 		DeviceClass: deviceClass, StateClass: stateClass, UnitOfMeasurement: unit,
 		Icon: icon, QoS: 1,
-		Device: DeviceMetadata{Identifiers: []string{deviceID}, Name: "RuView node " + nodeID, Manufacturer: "ruvnet", Model: "Go sensing backend", SWVersion: "0.1.0-go"},
-		Origin: OriginMetadata{Name: "RuView", SWVersion: "0.1.0-go", SupportURL: "https://github.com/ruvnet/RuView"},
+		Device: DeviceMetadata{Identifiers: []string{deviceID}, Name: "Wave Ray node " + nodeID, Manufacturer: "ruvnet", Model: "Go sensing backend", SWVersion: "0.1.0-go"},
+		Origin: OriginMetadata{Name: "Wave Ray", SWVersion: "0.1.0-go", SupportURL: "https://github.com/Garun-mp4/wave-ray"},
 	}
 	return config, p.config.Prefix + "/" + component + "/" + objectID + "/" + entity + "/config", nil
 }

@@ -1,4 +1,4 @@
-# Go sensing backend
+# Wave Ray — Go sensing backend
 
 The repository's default sensing Compose service now builds and runs the Go
 server. The migration is still in progress: the feature matrix lists functions
@@ -120,7 +120,7 @@ schemas have not been validated with a NETGEAR account. Origin AI uses
 `ORIGIN_AI_TOKEN`. Plume/OpenSync uses `RUVIEW_PLUME_BASE_URL` and
 `RUVIEW_PLUME_EVENTS_PATH`, with optional authentication configured by
 `RUVIEW_PLUME_TOKEN_ENV`. These clients use bounded HTTPS polling and require
-responses in the existing RuView vendor event contract. Origin AI and
+responses in the existing Wave Ray vendor event contract. Origin AI and
 Plume/OpenSync are configured northbound adapters, not native vendor API
 implementations. Plume's path must return the observation envelope; raw OVSDB
 responses are not decoded as person detections. Poll status is available at

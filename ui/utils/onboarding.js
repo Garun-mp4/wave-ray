@@ -26,7 +26,7 @@ export class Onboarding {
   defineSteps() {
     this.steps = [
       {
-        title: 'Welcome to RuView',
+        title: 'Welcome to Wave Ray',
         text: 'WiFi-based human pose estimation that works through walls. Let\'s take a quick tour of the dashboard.',
         target: null, // No highlight, centered
         position: 'center'

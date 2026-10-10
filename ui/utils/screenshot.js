@@ -89,7 +89,7 @@ export class ScreenshotTool {
     // Add timestamp watermark
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.font = '12px monospace';
-    ctx.fillText(`RuView - ${new Date().toLocaleString()}`, 10, mergedCanvas.height - 10);
+    ctx.fillText(`Wave Ray - ${new Date().toLocaleString()}`, 10, mergedCanvas.height - 10);
 
     const dataUrl = mergedCanvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -140,7 +140,7 @@ export class ScreenshotTool {
     // Watermark
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.font = '11px monospace';
-    ctx.fillText(`RuView - ${new Date().toLocaleString()}`, 10, rect.height - 10);
+    ctx.fillText(`Wave Ray - ${new Date().toLocaleString()}`, 10, rect.height - 10);
 
     return canvas;
   }
